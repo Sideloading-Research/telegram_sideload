@@ -1,0 +1,7 @@
+venv
+.DS_Store
+__pycache__/
+.idea
+TODO.md
+MINDFILE_FROM_GITHUB/
+last_commit_hash.txt
