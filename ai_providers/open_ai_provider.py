@@ -1,5 +1,6 @@
 import os
 from openai import OpenAI  # pip install openai
+from utils.creds_handler import CREDS
 
 MODEL_CLASSES = ["o1", "4o"]
 
@@ -11,17 +12,17 @@ MODEL_SPECIFIC_LIMITS = {"o1": 30000}
 
 
 def build_client():
-    key = os.environ["OPENAI_API_KEY"]
+    key = CREDS.get("OPENAI_API_KEY")
     client = OpenAI(api_key=key)
     return client
 
 
 def build_model_handle():
-    handle = os.environ["OPENAI_MODEL"]  # e.g. "gpt-4o"
+    handle = CREDS.get("OPENAI_MODEL")  # e.g. "gpt-4o"
     return handle
 
 
-if os.environ["AI_PROVIDER"] == "openai":
+if CREDS.get("AI_PROVIDER") == "openai":
     MODEL = build_model_handle()
     CLIENT = build_client()
     print(f"Loaded OpenAI model: {MODEL}")
@@ -73,4 +74,6 @@ def ask_open_ai(messages, max_length):
         msg = f"Error while sending to OpenAI: {e}"
         print(msg)
         answer = msg
-    return answer
+
+    success7 = True # TODO: check if the answer is successful
+    return answer, success7

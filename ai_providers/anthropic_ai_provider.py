@@ -1,19 +1,20 @@
 import os
 import anthropic
+from utils.creds_handler import CREDS
 
 
 def build_model_handle():
-    handle = os.environ["ANTHROPIC_MODEL"]  # e.g. "claude-3-5-sonnet"
+    handle = CREDS.get("ANTHROPIC_MODEL")  # e.g. "claude-3-5-sonnet"
     return handle
 
 
 def build_client():
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    key = CREDS.get("ANTHROPIC_API_KEY")
     client = anthropic.Anthropic(api_key=key)
     return client
 
 
-if os.environ["AI_PROVIDER"] == "anthropic":
+if CREDS.get("AI_PROVIDER") == "anthropic":
     MODEL = build_model_handle()
     CLIENT = build_client()
     print(f"Loaded Anthropic model: {MODEL}")
@@ -55,4 +56,5 @@ def ask_anthropic(messages, max_length):
     else:
         answer = "<non textual answer, not supported yet>"  # or some default value
 
-    return answer
+    success7 = True # TODO: check if the answer is successful
+    return answer, success7
