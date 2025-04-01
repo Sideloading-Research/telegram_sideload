@@ -15,6 +15,7 @@ from telegram.ext import (
 from config import ENABLE_USER_DEFINED_AI_PROVIDERS7, MAX_TELEGRAM_MESSAGE_LEN
 from utils.answer_modifications import modify_answer_before_sending_to_telegram
 from utils.mind_data_manager import MindDataManager
+from utils.creds_handler import CREDS
 
 """
 Note:
@@ -28,7 +29,7 @@ Some possible alternative strategies:
 --- if the latest msg by the user was yesterday, and more than 5h elapsed, then reset
 
 """
-
+from utils.constants import c
 
 PROVIDER_INDICATORS = {  # the indicators are case-insensitive
     "openai": ["o:", "о:"],  # Russian and Latin
@@ -37,21 +38,21 @@ PROVIDER_INDICATORS = {  # the indicators are case-insensitive
 
 SELECTED_PROVIDER = None
 
-# Retrieve token from environment variable
-TOKEN = os.getenv("TELEGRAM_LLM_BOT_TOKEN")
+# Retrieve token from CREDS
+TOKEN = CREDS.get("TELEGRAM_LLM_BOT_TOKEN")
 if not TOKEN:
     raise ValueError(
-        "No token provided. Set the TELEGRAM_BOT_TOKEN environment variable."
+        "No token provided. Set the TELEGRAM_LLM_BOT_TOKEN environment variable."
     )
 
 
-allowed_ids_str = os.getenv("ALLOWED_USER_IDS")
+allowed_ids_str = CREDS.get("ALLOWED_USER_IDS")
 
 # Convert the string of comma-separated integers to a list of integers
 ALLOWED_USER_IDS = [int(user_id.strip()) for user_id in allowed_ids_str.split(",")]
 
 # Add near the top with other constants
-allowed_groups_str = os.getenv("ALLOWED_GROUP_IDS", "")
+allowed_groups_str = CREDS.get("ALLOWED_GROUP_IDS", "")
 ALLOWED_GROUP_IDS = [int(group_id.strip()) for group_id in allowed_groups_str.split(",") if group_id.strip()]
 
 
@@ -163,15 +164,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     if is_allowed(update):
         user_id = update.effective_user.id
+        user_message = update.message.text
+        username = update.effective_user.username or update.effective_user.first_name or f"user_{user_id}"
+        formatted_message = f"{username} wrote: {user_message}"
+        
+        # Check for reset dialog command
+        if user_message.lower() == c.reset_dialog_command:
+            if user_id in MESSAGES_BY_USER:
+                MESSAGES_BY_USER[user_id] = build_initial_assistant_messages()
+                await update.message.reply_text("Dialog has been reset.")
+            else:
+                await update.message.reply_text("No dialog history to reset.")
+            return
 
         if user_id in MESSAGES_BY_USER:
             MESSAGES_BY_USER[user_id].append(
-                {"role": "user", "content": update.message.text},
+                {"role": "user", "content": formatted_message},
             )
 
         else:  # the user posted his first message
             MESSAGES_BY_USER[user_id] = build_initial_assistant_messages() + [
-                {"role": "user", "content": update.message.text},
+                {"role": "user", "content": formatted_message},
             ]
 
         answer = ask_gpt_multi_message(
@@ -208,14 +221,17 @@ async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text("Please provide a message after the command, like: /ask How are you?")
             return
 
+        username = update.effective_user.username or update.effective_user.first_name or f"user_{user_id}"
+        formatted_message = f"{username} wrote: {user_input}"
+
         # Process the message similar to handle_message
         if user_id in MESSAGES_BY_USER:
             MESSAGES_BY_USER[user_id].append(
-                {"role": "user", "content": user_input},
+                {"role": "user", "content": formatted_message},
             )
         else:
             MESSAGES_BY_USER[user_id] = build_initial_assistant_messages() + [
-                {"role": "user", "content": user_input},
+                {"role": "user", "content": formatted_message},
             ]
 
         answer = ask_gpt_multi_message(
