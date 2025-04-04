@@ -4,6 +4,8 @@ DATASET_DIR_NAME_IN_REPO = "full_dataset"
 
 DATASET_LOCAL_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
 
+PLATFORM_SPECIFIC_PROMPT_ADDITION="Note: this is an instant messaging chat, so keep your answers short."
+
 SYSTEM_MESSAGE_FILE_WITHOUT_EXT = "system_message"
 
 # While working with a very long context, the start and the end of the context
