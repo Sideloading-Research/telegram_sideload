@@ -12,7 +12,7 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler,
 )
-from config import ENABLE_USER_DEFINED_AI_PROVIDERS7, MAX_TELEGRAM_MESSAGE_LEN
+from config import ENABLE_USER_DEFINED_AI_PROVIDERS7, MAX_TELEGRAM_MESSAGE_LEN, PLATFORM_SPECIFIC_PROMPT_ADDITION
 from utils.answer_modifications import modify_answer_before_sending_to_telegram
 from utils.mind_data_manager import MindDataManager
 from utils.creds_handler import CREDS
@@ -120,6 +120,9 @@ def update_provider_from_user_input(user_input):
 def build_initial_assistant_messages():
     """Returns the initial messages that should be present in every conversation."""
     system_message, context = MIND_MANAGER.get_current_data()
+
+    system_message = system_message + "/n/n" + PLATFORM_SPECIFIC_PROMPT_ADDITION
+
     return [
         {"role": "system", "content": system_message},
         {"role": "assistant", "content": context}
