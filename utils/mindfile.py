@@ -1,7 +1,14 @@
 import os
 import shutil
 
-from config import DATASET_DIR_NAME_IN_REPO, SYSTEM_MESSAGE_FILE_WITHOUT_EXT, STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT, STRUCTURED_MEMORIES_FILE_WITHOUT_EXT
+
+from config import (
+    DATASET_DIR_NAME_IN_REPO,
+    SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
+    STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
+    STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
+    EXPENDABLE_MINDFILE_PART,
+)
 from utils.files_utils import get_existing_local_files
 from utils.github_tools import (
     backup_repo,
@@ -102,10 +109,52 @@ def sort_context_contents(contents, facts_filename, memories_filename):
             other_content.append(item)
             
     # Combine with structured facts first, regular content in middle, memories last
-    return structured_facts + sorted(other_content, key=lambda x: x[0]) + structured_memories
+    return (
+        structured_facts
+        + sorted(other_content, key=lambda x: x[0])
+        + structured_memories
+    )
 
 
-def get_system_message_and_context(files_dict):
+def build_source_tags(filename):
+    open_tag = f"<source:{filename}>"
+    close_tag = f"</source:{filename}>"
+    return open_tag, close_tag
+
+
+def split_context_by_importance(context):
+    """
+    Split the context into three parts: before the expendable part, the expendable part, and after the expendable part.
+
+    Args:
+        context: The full context string
+
+    Returns:
+        Tuple of (before_expendable, expendable, after_expendable) strings
+    """
+    open_tag, close_tag = build_source_tags(EXPENDABLE_MINDFILE_PART)
+
+    # Find the start and end positions of the expendable part
+    start_pos = context.find(open_tag)
+    if start_pos == -1:  # Tag not found
+        return context, "", ""
+
+    end_pos = context.find(close_tag, start_pos) + len(close_tag)
+    if end_pos <= len(close_tag):  # Closing tag not found
+        # Return everything up to the opening tag as non-expendable, and everything after as expendable
+        return context[:start_pos], context[start_pos:], ""
+
+    # Extract the parts
+    before_expendable = context[:start_pos]
+    expendable = context[start_pos:end_pos]
+    after_expendable = context[end_pos:]
+
+    return before_expendable, expendable, after_expendable
+
+
+
+
+def get_system_message_and_context(files_dict, save_context_to_file7=False):
     system_message = None
     non_system_contents = []
     for file, path in files_dict.items():
@@ -121,18 +170,25 @@ def get_system_message_and_context(files_dict):
     non_system_contents = sort_context_contents(
         non_system_contents, 
         STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
-        STRUCTURED_MEMORIES_FILE_WITHOUT_EXT
+        STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
     )
 
     # Merge contents with source tags
     context = ""
     for filename, content in non_system_contents:
-        context += f"<source:{filename}>\n\n{content}\n\n</source:{filename}>\n\n\n"
+        open_tag, close_tag = build_source_tags(filename)
+        context += f"{open_tag}\n\n{content}\n\n{close_tag}\n\n\n"
 
     if system_message is None:
         msg = "System message not found."
         msg += f"It should be named {SYSTEM_MESSAGE_FILE_WITHOUT_EXT},"
-        msg += f"and be located in the directory {DATASET_DIR_NAME_IN_REPO} in the repo."
+        msg += (
+            f"and be located in the directory {DATASET_DIR_NAME_IN_REPO} in the repo."
+        )
         raise ValueError(msg)
+
+    if save_context_to_file7:
+        with open(f"context_for_debug.txt", "w") as f:
+            f.write(context)
 
     return system_message, context.strip()

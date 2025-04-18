@@ -5,3 +5,5 @@ __pycache__/
 TODO.md
 MINDFILE_FROM_GITHUB/
 last_commit_hash.txt
+context_for_debug.txt
+expendable_shrinked.txt
