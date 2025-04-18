@@ -14,6 +14,7 @@ SYSTEM_MESSAGE_FILE_WITHOUT_EXT = "system_message"
 STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT = "structured_self_facts" 
 STRUCTURED_MEMORIES_FILE_WITHOUT_EXT = "structured_memories"
 
+# How often to check if the mindfile has changed in the repo.
 REFRESH_EVERY_N_REQUESTS = 10
 
 ENABLE_USER_DEFINED_AI_PROVIDERS7 = False # keep False, not fully implemented yet
@@ -23,3 +24,12 @@ REMOVE_CHAIN_OF_THOUGHT_FROM_ANSWER7 = True
 REMOVE_INTERNAL_DIALOG_FROM_ANSWER7 = True
 
 MAX_TELEGRAM_MESSAGE_LEN = 4096 # hardcoded by Telegram
+
+CHARS_PER_TOKEN = 3584718 / 1064452 # experimental values for Gemini 2.5
+
+MAX_TOKENS_ALLOWED_IN_REQUEST = 1048576 # got it from Google's error message
+
+EXPENDABLE_MINDFILE_PART = "dialogs"
+
+# Safety margin for token limit calculations
+TOKEN_SAFETY_MARGIN = 1.2

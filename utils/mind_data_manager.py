@@ -2,6 +2,7 @@ import threading
 from typing import Tuple, Optional
 from utils.mindfile import refresh_local_mindfile_data, get_system_message_and_context
 from config import REPO_URL, DATASET_LOCAL_DIR_PATH, REFRESH_EVERY_N_REQUESTS
+from utils.tokens import count_tokens, is_token_limit_of_text_exceeded
 
 class MindDataManager:
     _instance = None
@@ -51,6 +52,12 @@ class MindDataManager:
 
         if self._system_message is None or self._context is None:
             raise RuntimeError("Mind data not properly initialized")
+        
+        #tokens_num = count_tokens(self._context)
+        #print(f"Chars num in context: {len(self._context)}")
+        #print(f"Tokens number in context: {tokens_num}")
+        #if is_token_limit_of_text_exceeded(self._context):
+        #    print("Token limit exceeded")
 
         return self._system_message, self._context
 

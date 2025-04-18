@@ -8,6 +8,8 @@ from utils.constants import c
 from ai_providers.anthropic_ai_provider import ask_anthropic
 from ai_providers.open_ai_provider import ask_open_ai
 from ai_providers.google_ai_provider import ask_google
+from utils.tokens import is_token_limit_of_request_exceeded
+from utils.message_reducer import reduce_context_in_messages
 
 MAX_CALLS_PER_PERIOD = 10000
 PERIOD_S = 60  # 1 min
@@ -55,6 +57,17 @@ def rate_limit(max_calls, period, stop_on_limit=True):
 def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
     retries = 0
     retry_info = ""
+
+    if is_token_limit_of_request_exceeded(messages):
+        print("Token limit exceeded, attempting to reduce context...")
+        reduced_messages, success = reduce_context_in_messages(messages)
+        
+        if success:
+            print("Successfully reduced context, proceeding with reduced messages")
+            messages = reduced_messages
+        else:
+            print("Failed to reduce context sufficiently")
+            return "Token limit exceeded - Context could not be reduced sufficiently"
     
     while retries <= MAX_RETRIES:
         try:
