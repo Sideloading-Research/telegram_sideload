@@ -26,7 +26,7 @@ print("(skip)")
 print(after_expendable[-100:])
 """
 
-res = shrink_text(expendable, 120000)
+res = shrink_text(expendable, 1500000)
 
 # write to file
 with open("expendable_shrinked.txt", "w") as f:
