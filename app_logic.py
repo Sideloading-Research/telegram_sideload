@@ -2,6 +2,8 @@ from conversation_manager import ConversationManager
 from ai_service import get_ai_response # No longer need update_provider_from_user_input directly here
 from utils.answer_modifications import modify_answer_before_sending_to_telegram
 from utils.constants import c # For c.reset_dialog_command
+from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 # ADDED
+from telegram.constants import ChatType # ADDED - for explicit comparison
 
 
 def _get_effective_username(user_id: int, username: str = None, first_name: str = None, last_name: str = None) -> str:
@@ -27,51 +29,69 @@ class AppLogic:
 
     def check_authorization(self, chat_type: str, user_id: int, chat_id: int) -> bool:
         """Checks if the user or chat is authorized based on type and IDs."""
-        if chat_type == 'private':
+        if chat_type == ChatType.PRIVATE: # Using ChatType constant
             return user_id in self.allowed_user_ids
-        elif chat_type in ['group', 'supergroup']:
+        elif chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]: # Using ChatType constants
             return chat_id in self.allowed_group_ids
         return False
 
     def process_user_request(self, 
                              user_id: int, 
                              raw_user_message: str, 
+                             chat_id: int,             # ADDED
+                             chat_type: str,           # ADDED
+                             generate_ai_reply: bool,   # ADDED
                              username: str = None, 
                              first_name: str = None, 
-                             last_name: str = None) -> tuple[str, str | None]:
+                             last_name: str = None) -> tuple[str | None, str | None]: # Modified return type
         """
-        Processes the user's request and returns the bot's answer and a potential provider switch report.
+        Processes the user's request. Adds user message to history.
+        If generate_ai_reply is True, calls AI, adds AI response to history, and returns answer.
+        Otherwise, returns (None, None).
         
         Returns:
-            tuple[str, str | None]: (answer_to_send, provider_report_message_or_none)
+            tuple[str | None, str | None]: (answer_to_send, provider_report_message_or_none)
         """
-        user_id_str = str(user_id) # ConversationManager uses string IDs
-        # Authorization check should ideally happen before processing
-        # However, the call to this function in main.py is already inside an is_allowed check.
-        # If we want AppLogic to be fully self-contained for this, the check could be duplicated here
-        # or is_allowed could be called from here. For now, keeping it as is since main.py handles the guard.
+        # Determine the conversation key based on chat type and config
+        if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP] and BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
+            conversation_key = str(chat_id)
+            print(f"Using CHAT_ID ({chat_id}) as conversation key for group chat.")
+        else:
+            conversation_key = str(user_id)
+            if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+                 print(f"Using USER_ID ({user_id}) as conversation key for group chat (BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 is False).")
+            else:
+                 print(f"Using USER_ID ({user_id}) as conversation key for private chat.")
 
         effective_username = _get_effective_username(user_id, username, first_name, last_name)
-        print(f"Processing request from user: {effective_username}")
+        print(f"Processing request from user: {effective_username} in context of conversation_key: {conversation_key}. Generate AI reply: {generate_ai_reply}")
 
         # Handle reset command
         if raw_user_message.lower() == c.reset_dialog_command:
-            if self.conversation_manager.reset_conversation(user_id_str):
+            if self.conversation_manager.reset_conversation(conversation_key):
+                # Reset commands always provide a direct response, not from AI.
                 return "Dialog has been reset.", None
             else:
                 return "No active dialog to reset. Starting a new one now.", None
 
         formatted_user_message = f"{effective_username} wrote: {raw_user_message}"
         
-        self.conversation_manager.add_user_message(user_id_str, formatted_user_message)
+        self.conversation_manager.add_user_message(conversation_key, formatted_user_message)
         
-        messages_history = self.conversation_manager.get_conversation_messages(user_id_str)
+        print(f"Added user message from {effective_username} to history for key {conversation_key}.")
+
+        if not generate_ai_reply:
+            print(f"AI reply generation skipped for key {conversation_key} as per request.")
+            return None, None
+
+        # Proceed with AI response generation
+        messages_history = self.conversation_manager.get_conversation_messages(conversation_key)
         
         ai_answer, provider_report = get_ai_response(messages_history, raw_user_message, max_length=500)
         
-        self.conversation_manager.add_assistant_message(user_id_str, ai_answer)
+        self.conversation_manager.add_assistant_message(conversation_key, ai_answer)
         
-        print(f"Current conversation length for user {user_id_str}: {self.conversation_manager.get_conversation_length(user_id_str)}")
+        print(f"Current conversation length for key {conversation_key}: {self.conversation_manager.get_conversation_length(conversation_key)}")
 
         final_answer = modify_answer_before_sending_to_telegram(ai_answer)
         
