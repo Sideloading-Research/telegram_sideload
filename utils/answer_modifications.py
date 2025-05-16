@@ -105,12 +105,16 @@ def optionally_remove_answer_sections(
         return msg + "\n" + str(answer)
 
 
-def reduce_answer_len_to_comply_with_telegram_limit(answer):
+def reduce_answer_len_to_comply_with_telegram_limit(answer, cut_str = "<...>"):
     if len(answer) > MAX_TELEGRAM_MESSAGE_LEN:
         print(
             f"Answer is too long. Cutting it to {MAX_TELEGRAM_MESSAGE_LEN} characters."
         )
-        answer = answer[:MAX_TELEGRAM_MESSAGE_LEN]
+
+        # answer = answer[:MAX_TELEGRAM_MESSAGE_LEN]
+        # preserve the last chars instead
+        effective_len = MAX_TELEGRAM_MESSAGE_LEN - len(cut_str)
+        answer = cut_str + answer[-effective_len:]
     return answer
 
 

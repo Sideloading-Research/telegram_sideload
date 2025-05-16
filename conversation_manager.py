@@ -38,8 +38,7 @@ def _build_initial_assistant_messages(mind_manager: MindDataManager):
     ]
 
 class Conversation:
-    def __init__(self, user_id: str, mind_manager: MindDataManager):
-        self.user_id = user_id
+    def __init__(self, mind_manager: MindDataManager):
         self.mind_manager = mind_manager
         self.messages = _build_initial_assistant_messages(self.mind_manager)
         self.max_messages_num = get_max_messages_num()
@@ -78,35 +77,35 @@ class Conversation:
 
 class ConversationManager:
     def __init__(self, mind_manager: MindDataManager):
-        self._conversations = {} # user_id -> Conversation object
+        self._conversations = {} # conversation_key -> Conversation object
         self.mind_manager = mind_manager
 
-    def get_or_create_conversation(self, user_id: str) -> Conversation:
-        if user_id not in self._conversations:
-            self._conversations[user_id] = Conversation(user_id, self.mind_manager)
-        return self._conversations[user_id]
+    def get_or_create_conversation(self, conversation_key: str) -> Conversation:
+        if conversation_key not in self._conversations:
+            self._conversations[conversation_key] = Conversation(self.mind_manager)
+        return self._conversations[conversation_key]
 
-    def reset_conversation(self, user_id: str) -> bool:
-        if user_id in self._conversations:
-            self._conversations[user_id].reset()
+    def reset_conversation(self, conversation_key: str) -> bool:
+        if conversation_key in self._conversations:
+            self._conversations[conversation_key].reset()
             return True
         return False
 
-    def get_conversation_messages(self, user_id: str) -> list:
-        conversation = self.get_or_create_conversation(user_id)
+    def get_conversation_messages(self, conversation_key: str) -> list:
+        conversation = self.get_or_create_conversation(conversation_key)
         return conversation.get_messages()
 
-    def add_user_message(self, user_id: str, content: str):
-        conversation = self.get_or_create_conversation(user_id)
+    def add_user_message(self, conversation_key: str, content: str):
+        conversation = self.get_or_create_conversation(conversation_key)
         conversation.add_user_message(content)
 
-    def add_assistant_message(self, user_id: str, content: str):
-        conversation = self.get_or_create_conversation(user_id)
+    def add_assistant_message(self, conversation_key: str, content: str):
+        conversation = self.get_or_create_conversation(conversation_key)
         conversation.add_assistant_message(content)
         
-    def get_conversation_length(self, user_id: str) -> int:
-        if user_id in self._conversations:
-            return len(self._conversations[user_id].get_messages())
+    def get_conversation_length(self, conversation_key: str) -> int:
+        if conversation_key in self._conversations:
+            return len(self._conversations[conversation_key].get_messages())
         return 0
 
 # Example Usage (for testing or if this module were run directly)
@@ -118,35 +117,35 @@ class ConversationManager:
 #     mock_mm = MockMindManager()
 #     cm = ConversationManager(mind_manager=mock_mm)
 
-#     user1 = "user123"
-#     conv1 = cm.get_or_create_conversation(user1)
-#     print(f"Initial messages for {user1}: {conv1.get_messages()}")
+#     user1_key = "user123"
+#     conv1 = cm.get_or_create_conversation(user1_key)
+#     print(f"Initial messages for {user1_key}: {conv1.get_messages()}")
 
-#     cm.add_user_message(user1, "Hello there!")
-#     print(f"After user message for {user1}: {conv1.get_messages()}")
-#     cm.add_assistant_message(user1, "General Kenobi!")
-#     print(f"After assistant message for {user1}: {conv1.get_messages()}")
+#     cm.add_user_message(user1_key, "Hello there!")
+#     print(f"After user message for {user1_key}: {conv1.get_messages()}")
+#     cm.add_assistant_message(user1_key, "General Kenobi!")
+#     print(f"After assistant message for {user1_key}: {conv1.get_messages()}")
 
-#     cm.reset_conversation(user1)
-#     print(f"After reset for {user1}: {conv1.get_messages()}")
+#     cm.reset_conversation(user1_key)
+#     print(f"After reset for {user1_key}: {conv1.get_messages()}")
 
 #     # Test trimming
 #     # Override max_messages_num for testing (in a real scenario, this comes from config)
 #     conv1.max_messages_num = 5 # System, Assistant, User, Assistant, User (trim next)
-#     print(f"Set max messages to {conv1.max_messages_num} for {user1}")
+#     print(f"Set max messages to {conv1.max_messages_num} for {user1_key}")
     
 #     # Rebuild initial messages as reset does this.
 #     # The _trim_history logic assumes initial messages are present.
 #     # The trim function now rebuilds initial_messages correctly
     
-#     cm.add_user_message(user1, "User Q1")
-#     cm.add_assistant_message(user1, "Assistant A1")
-#     print(f"Len: {cm.get_conversation_length(user1)}, Messages: {conv1.get_messages()}")
-#     cm.add_user_message(user1, "User Q2") # This should trigger a trim if MAX is 5 (sys, assist, q1, a1, q2)
-#     print(f"Len: {cm.get_conversation_length(user1)}, Messages after Q2 for {user1}: {conv1.get_messages()}")
-#     cm.add_assistant_message(user1, "Assistant A2")
-#     print(f"Len: {cm.get_conversation_length(user1)}, Messages after A2 for {user1}: {conv1.get_messages()}")
-#     cm.add_user_message(user1, "User Q3")
-#     print(f"Len: {cm.get_conversation_length(user1)}, Messages after Q3 for {user1}: {conv1.get_messages()}")
+#     cm.add_user_message(user1_key, "User Q1")
+#     cm.add_assistant_message(user1_key, "Assistant A1")
+#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages: {conv1.get_messages()}")
+#     cm.add_user_message(user1_key, "User Q2") # This should trigger a trim if MAX is 5 (sys, assist, q1, a1, q2)
+#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages after Q2 for {user1_key}: {conv1.get_messages()}")
+#     cm.add_assistant_message(user1_key, "Assistant A2")
+#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages after A2 for {user1_key}: {conv1.get_messages()}")
+#     cm.add_user_message(user1_key, "User Q3")
+#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages after Q3 for {user1_key}: {conv1.get_messages()}")
 
 #     # Expected: System, Assistant, Q2, A2, Q3 (if max is 5 and includes 2 initial) 
