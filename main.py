@@ -196,18 +196,44 @@ def is_allowed(update: Update) -> bool:
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
     print("\nDEBUG MESSAGE INFO:")
-    print(f"Message text: {update.message.text}")
-    print(f"Chat type: {update.message.chat.type}")
+
+    if update.message is not None:
+        print(f"Message text: {update.message.text}")
+        print(f"Chat type: {update.message.chat.type}")
+        print(f"Entities: {update.message.entities}")
+    else:
+        print("Message is None (e.g. an image)")
+
     print(f"Chat ID: {update.effective_chat.id}")
-    print(f"Entities: {update.message.entities}")
-    print(f"From user: {update.effective_user.username} (ID: {update.effective_user.id})")
     
     if is_allowed(update):
         user_id = update.effective_user.id
-        user_message = update.message.text
-        username = update.effective_user.username or update.effective_user.first_name or f"user_{user_id}"
-        formatted_message = f"{username} wrote: {user_message}"
+
+        if update.message is not None:
+            user_message = update.message.text
+        else:
+            user_message = "<unsupported message type>"
+
+        # username = update.effective_user.username or update.effective_user.first_name or f"user_{user_id}"
+        username = update.effective_user.username
+        first_name = update.effective_user.first_name
+        last_name = update.effective_user.last_name
+        user_id_str = f"{user_id}"
+
+        effective_username = f"id_{user_id_str}"
+        if username:
+            effective_username += f" @{username}"
+        if first_name:
+            effective_username += f" {first_name}"
+        if last_name:
+            effective_username += f" {last_name}"
+
+        print(f"From user: {effective_username}")
+
+
+        formatted_message = f"{effective_username} wrote: {user_message}"
         
         # Check for reset dialog command
         if user_message.lower() == c.reset_dialog_command:
