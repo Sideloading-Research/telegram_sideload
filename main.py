@@ -16,6 +16,27 @@ from config import ENABLE_USER_DEFINED_AI_PROVIDERS7, MAX_TELEGRAM_MESSAGE_LEN, 
 from utils.answer_modifications import modify_answer_before_sending_to_telegram
 from utils.mind_data_manager import MindDataManager
 from utils.creds_handler import CREDS
+from utils.constants import c
+
+# Parse USERS_INFO from environment variables
+USER_DESCRIPTIONS_FROM_ENV = {}
+raw_users_info = CREDS.get("USERS_INFO", "")
+if raw_users_info:
+    try:
+        user_entries = raw_users_info.split(';')
+        for entry in user_entries:
+            if entry.strip(): # Ensure entry is not just whitespace
+                parts = entry.split(':', 1)
+                if len(parts) == 2:
+                    user_id = parts[0].strip()
+                    description = parts[1].strip()
+                    if user_id and description: # Ensure both user_id and description are non-empty
+                        USER_DESCRIPTIONS_FROM_ENV[user_id] = description
+                else:
+                    print(f"Warning: Malformed entry in USERS_INFO: '{entry}'")
+    except Exception as e:
+        print(f"Warning: Could not parse USERS_INFO environment variable: {e}")
+
 
 """
 Note:
@@ -29,7 +50,6 @@ Some possible alternative strategies:
 --- if the latest msg by the user was yesterday, and more than 5h elapsed, then reset
 
 """
-from utils.constants import c
 
 PROVIDER_INDICATORS = {  # the indicators are case-insensitive
     "openai": ["o:", "о:"],  # Russian and Latin
@@ -55,13 +75,21 @@ ALLOWED_USER_IDS = [int(user_id.strip()) for user_id in allowed_ids_str.split(",
 allowed_groups_str = CREDS.get("ALLOWED_GROUP_IDS", "")
 ALLOWED_GROUP_IDS = [int(group_id.strip()) for group_id in allowed_groups_str.split(",") if group_id.strip()]
 
-
-
 MAX_MESSAGES_NUM = 50
+MESSAGES_BY_USER = {} # user_id -> messages_list
+MIND_MANAGER = MindDataManager.get_instance() 
 
-MESSAGES_BY_USER = {}
 
-MIND_MANAGER = MindDataManager.get_instance()
+# Helper function to format user information
+def format_user_info_prompt(user_descriptions_dict):
+    if not user_descriptions_dict:
+        return ""
+    
+    formatted_items = []
+    for user_id, description in user_descriptions_dict.items():
+        formatted_items.append(f"- {user_id}: {description}")
+    
+    return "Some known users:\n" + "\n".join(formatted_items)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -121,10 +149,20 @@ def build_initial_assistant_messages():
     """Returns the initial messages that should be present in every conversation."""
     system_message, context = MIND_MANAGER.get_current_data()
 
-    system_message = system_message + "/n/n" + PLATFORM_SPECIFIC_PROMPT_ADDITION
+    user_info_prompt_addition = format_user_info_prompt(USER_DESCRIPTIONS_FROM_ENV)
+    print(f"User info prompt addition: {user_info_prompt_addition}")
+
+    full_system_message = system_message
+    if PLATFORM_SPECIFIC_PROMPT_ADDITION:
+        full_system_message += "\n\n" + PLATFORM_SPECIFIC_PROMPT_ADDITION
+    if user_info_prompt_addition:
+        full_system_message += "\n\n" + user_info_prompt_addition
+    
+    # Debug print
+    # print(f"Full system message being used:\n{full_system_message}")
 
     return [
-        {"role": "system", "content": system_message},
+        {"role": "system", "content": full_system_message},
         {"role": "assistant", "content": context}
     ]
 
