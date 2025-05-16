@@ -12,8 +12,10 @@ from utils.tokens import is_token_limit_of_request_exceeded
 from utils.message_reducer import reduce_context_in_messages
 
 MAX_CALLS_PER_PERIOD = 10000
-PERIOD_S = 60  # 1 min
-MAX_RETRIES = 5
+RATE_LIMIT_PERIOD_S = 60  # 1 min
+
+MAX_RETRIES = 10
+DELAY_CONSTANT_S = 1
 
 PROVIDER_FROM_ENV = CREDS.get("AI_PROVIDER", "google")
 
@@ -53,7 +55,7 @@ def rate_limit(max_calls, period, stop_on_limit=True):
     return decorator
 
 
-@rate_limit(max_calls=MAX_CALLS_PER_PERIOD, period=PERIOD_S, stop_on_limit=True)
+@rate_limit(max_calls=MAX_CALLS_PER_PERIOD, period=RATE_LIMIT_PERIOD_S, stop_on_limit=True)
 def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
     retries = 0
     retry_info = ""
@@ -98,7 +100,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                     return f"{answer}{retry_info}"
                 
                 # Exponential backoff: 2^retries * 100ms
-                delay = (2 ** retries) * 0.1
+                delay = (2 ** retries) * DELAY_CONSTANT_S
                 print(f"Attempt {retries}/{MAX_RETRIES} failed. Retrying in {delay:.2f}s...")
                 time.sleep(delay)
                 
@@ -111,7 +113,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                 return msg
             
             # Exponential backoff: 2^retries * 100ms
-            delay = (2 ** retries) * 0.1
+            delay = (2 ** retries) * DELAY_CONSTANT_S
             print(f"Attempt {retries}/{MAX_RETRIES} failed with exception: {e}. Retrying in {delay:.2f}s...")
             time.sleep(delay)
 
