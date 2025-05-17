@@ -14,6 +14,7 @@ keys_dict = {
     "OPENAI_MODEL": "dummy",  # Required if AI_PROVIDER is "openai"
     "OPENAI_API_KEY": "dummy",  # Required if AI_PROVIDER is "openai"
     "USERS_INFO": "", # Optional, information about users
+    "TRIGGER_WORDS": "", # Optional, trigger words for the bot
 }
 
 

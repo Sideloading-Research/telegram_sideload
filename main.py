@@ -25,6 +25,7 @@ CONVERSATION_MANAGER = ConversationManager(mind_manager=MIND_MANAGER)
 TOKEN = bot_config.get_token()
 ALLOWED_USER_IDS = bot_config.get_allowed_user_ids()
 ALLOWED_GROUP_IDS = bot_config.get_allowed_group_ids()
+TRIGGER_WORDS_LIST = bot_config.get_trigger_words() # Import trigger words
 
 APPLICATION_LOGIC = AppLogic(
     conversation_manager=CONVERSATION_MANAGER,
@@ -125,7 +126,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     print(f"Chat ID: {update.effective_chat.id}")
     
     if is_allowed(update):
-        bot_should_always_reply_in_group = True # Default for clarity, will be set by mention logic
+        bot_should_always_reply_in_group = False # Default for clarity, will be set by mention logic
         # Conditional group message handling for deciding IF WE REPLY
         if update.message and update.message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
             if BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
@@ -153,6 +154,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     if update.message.reply_to_message.from_user and update.message.reply_to_message.from_user.id == context.bot.id:
                         bot_was_mentioned_or_replied_to = True
                         print("Message is a reply to the bot.")
+
+                # Check for trigger words if not already mentioned or replied to
+                if not bot_was_mentioned_or_replied_to and TRIGGER_WORDS_LIST and message_text_content_for_mention_check:
+                    for word in TRIGGER_WORDS_LIST:
+                        if word in message_text_content_for_mention_check.lower():
+                            bot_was_mentioned_or_replied_to = True
+                            print(f"Bot triggered by word: '{word}'")
+                            break # Exit loop once a trigger word is found
 
                 # This variable now controls if we REPLY, not if we PROCESS
                 bot_should_always_reply_in_group = bot_was_mentioned_or_replied_to 
