@@ -6,6 +6,24 @@ DATASET_LOCAL_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
 
 PLATFORM_SPECIFIC_PROMPT_ADDITION="Note: this is an instant messaging chat, so keep your answers short."
 
+RESPONSE_FORMAT_REMINDER = """
+--------------------------------
+Automatic reminder attached by the script: 
+don't forget to use the proper response format, including the right tags:
+
+	<chain of thought>
+	Your considerations on how to better answer the user's query 
+	</chain of thought>
+	
+	<my internal dialog>
+	What the emulated mind would think before answering to the user's query. 
+	</my internal dialog>
+	
+	<my answer to the user>
+	Several sentences in his style. 
+	</my answer to the user>
+"""
+
 SYSTEM_MESSAGE_FILE_WITHOUT_EXT = "system_message"
 
 # While working with a very long context, the start and the end of the context
@@ -16,6 +34,8 @@ STRUCTURED_MEMORIES_FILE_WITHOUT_EXT = "structured_memories"
 
 # How often to check if the mindfile has changed in the repo.
 REFRESH_EVERY_N_REQUESTS = 10
+
+REMINDER_INTERVAL = 5 # How often to send the RESPONSE_FORMAT_REMINDER to the AI
 
 ENABLE_USER_DEFINED_AI_PROVIDERS7 = False # keep False, not fully implemented yet
 

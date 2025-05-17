@@ -80,5 +80,20 @@ def get_allowed_group_ids():
 def get_max_messages_num():
     return MAX_MESSAGES_NUM
 
+# --- Trigger Words ---
+TRIGGER_WORDS_STR = CREDS.get("TRIGGER_WORDS", "")
+print(f"Trigger words string: {TRIGGER_WORDS_STR}")
+TRIGGER_WORDS = []
+if TRIGGER_WORDS_STR:
+    TRIGGER_WORDS = [word.strip().lower() for word in TRIGGER_WORDS_STR.split(';') if word.strip()]
+
+print("Trigger words:")
+for word in TRIGGER_WORDS:
+    print(word)
+print("--------------------------------")
+
+def get_trigger_words():
+    return TRIGGER_WORDS
+
 # Example of how other modules might access these:
 # from bot_config import get_token, GLOBAL_PLATFORM_SPECIFIC_PROMPT_ADDITION 
