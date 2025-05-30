@@ -1,5 +1,5 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -80,29 +80,46 @@ async def reply_text_wrapper(
     
     for attempt in range(max_retries):
         try:
-            # Try to reply to the message if available
+            common_args = {
+                "text": text,
+                "reply_markup": reply_markup,
+                "parse_mode": parse_mode,
+                "disable_web_page_preview": disable_web_page_preview,
+                "disable_notification": disable_notification,
+            }
+
             if update.message and hasattr(update.message, 'reply_text'):
-                await update.message.reply_text(
-                    text=text,
-                    reply_markup=reply_markup,
-                    parse_mode=parse_mode,
-                    disable_web_page_preview=disable_web_page_preview,
-                    disable_notification=disable_notification,
-                    reply_to_message_id=reply_to_message_id,
+                # Determine the actual message ID to reply to for update.message.reply_text
+                # If caller provides reply_to_message_id, that takes precedence.
+                # Otherwise, update.message.reply_text replies to update.message.message_id.
+                effective_reply_to_msg_id = reply_to_message_id if reply_to_message_id is not None else update.message.message_id
+
+                reply_params_obj = ReplyParameters(
+                    message_id=effective_reply_to_msg_id,
                     allow_sending_without_reply=allow_sending_without_reply
+                )
+                await update.message.reply_text(
+                    **common_args,
+                    reply_parameters=reply_params_obj
                 )
                 return True
             elif fallback_to_send_message and update.effective_chat:
-                # Fallback to send_message if reply_text is not available
+                send_args = {**common_args}
+                if reply_to_message_id is not None:
+                    # If caller wants to reply to a specific message via send_message
+                    reply_params_obj = ReplyParameters(
+                        message_id=reply_to_message_id,
+                        allow_sending_without_reply=allow_sending_without_reply
+                    )
+                    send_args["reply_parameters"] = reply_params_obj
+                else:
+                    # Not replying to a specific message via send_message.
+                    # Pass allow_sending_without_reply directly, as no ReplyParameters are involved.
+                    send_args["allow_sending_without_reply"] = allow_sending_without_reply
+                
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=text,
-                    reply_markup=reply_markup,
-                    parse_mode=parse_mode,
-                    disable_web_page_preview=disable_web_page_preview,
-                    disable_notification=disable_notification,
-                    reply_to_message_id=reply_to_message_id,
-                    allow_sending_without_reply=allow_sending_without_reply
+                    **send_args
                 )
                 return True
             else:
