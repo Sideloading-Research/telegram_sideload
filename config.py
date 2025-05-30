@@ -4,25 +4,36 @@ DATASET_DIR_NAME_IN_REPO = "full_dataset"
 
 DATASET_LOCAL_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
 
-PLATFORM_SPECIFIC_PROMPT_ADDITION="Note: this is an instant messaging chat, so keep your answers short."
+PLATFORM_SPECIFIC_PROMPT_ADDITION="""Note: 
+This is an instant messaging chat, so keep your answers short.
 
-RESPONSE_FORMAT_REMINDER = """
+If you see messages from several users, you're most likely in a group chat.
+In group chats, you're an equal participant among many. So, not every discussion is about you, or with you. No need to address every message you see.
+"""
+
+CHAIN_OF_THOUGHT_TAG = "chain of thought"
+INTERNAL_DIALOG_TAG = "my internal dialog"
+ANSWER_TO_USER_TAG = "my answer to the user"
+
+RESPONSE_FORMAT_REMINDER = f"""
 --------------------------------
 Automatic reminder attached by the script: 
 don't forget to use the proper response format, including the right tags:
 
-	<chain of thought>
+	<{CHAIN_OF_THOUGHT_TAG}>
 	Your considerations on how to better answer the user's query 
-	</chain of thought>
+	</{CHAIN_OF_THOUGHT_TAG}>
 	
-	<my internal dialog>
+	<{INTERNAL_DIALOG_TAG}>
 	What the emulated mind would think before answering to the user's query. 
-	</my internal dialog>
+	</{INTERNAL_DIALOG_TAG}>
 	
-	<my answer to the user>
+	<{ANSWER_TO_USER_TAG}>
 	Several sentences in his style. 
-	</my answer to the user>
+	</{ANSWER_TO_USER_TAG}>
 """
+
+MAX_MESSAGE_LEN_TO_TRIGGER_LLM_BASED_POSTPROCESSING = 1000
 
 SYSTEM_MESSAGE_FILE_WITHOUT_EXT = "system_message"
 

@@ -4,7 +4,9 @@ Chat with your sideload in Telegram.
 
 The mindfile for the sideload is automatically pulled from a specified GitHub repository, and it regularly updated, to keep your sideload up-to-date.
 
-The bot supports both private chats and group chats (when group IDs are authorized)
+The bot supports both private chats and group chats.
+
+A unique feature of the bot is that the mindfile can exceed the context window of the LLM, thanks to the pseudo-infinite context (see a section about about it below).
 
 # Prerequisites
 
@@ -39,17 +41,14 @@ The rest of the files will be placed in the middle of the context.
 
 # How to deploy:
 
-## 0. Get the telegram IDs of the allowed users 
-
-For example, of your friends in telegram. You can also add group IDs if you want your bot to work in group chats.
-
 ## 1. Create a VM, and do SSH into it
 
-For example, in Digital Ocean, Azure, etc.
+For example, in Digital Ocean, Azure, etc. 
+From experience, the script needs at least 1 GB of RAM.
 
 You can also run the script locally. Useful for testing.
 
-The script was tested on Ubuntu VM.
+The script was tested on Ubuntu and MacOS. Not sure if it works on Windows.
 
 ## 2. Clone this repository into the VM
 
@@ -64,15 +63,53 @@ tmux new -s session_name
 cd to the dir where you cloned this and run in a terminal:
 
 ```
+python3 -m venv venv
+```
+```
+source venv/bin/activate
+```
+```
 pip install -r requirements.txt
 ```
 
-## 5. Specify the API keys and allowed users like this:
+## 5. Choose the LLM model to use:
+
+The script was extensively tested with these models:
+- gemini-2.5-pro-preview-03-25
+- gemini-2.5-flash-preview-04-17
+
+The pro version is noticeably better, but it's also x10 more expensive.
+
+The flash version still delivers good results. 
+
+If you want to try other models, for best results make sure they have at least 1M context.
+
+The 2.5 generation of Gemini models is the first one where we have noticed human-like quality of responses and a good understanding of the mindfile. Thus, we recommend using 2.5 or later generations.
+
+The list of other models from Google can be found here:
+https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions
+
+Note: While the codebase includes files for other AI providers (like Anthropic and OpenAI in the `ai_providers` directory), the bot is currently optimized and tested for Google's models.
+
+## 6. (optional) Obtain telegram user IDs and group IDs 
+
+To avoid abuse, the bot only talks with authorized users and authorized groups.
+
+There are third-party bots that can help you get the IDs of your users and groups. But we haven't tested them, and not sure if they are safe to use. 
+
+The easiest way to get the IDs is to start talking with the bot. 
+If he complains that the ID is not in the list of authorized IDs, you can add it to the list of authorized IDs.
+
+Same for groups. 
+
+Thus, if you don't already have the IDs, you can just skip adding them to env variables, for now. 
+
+## 7. Specify the API keys and allowed users like this:
 
 ```
 echo "export GOOGLE_API_KEY='<your_google_api_key>'" >> ~/.bashrc
 
-echo "export GOOGLE_MODEL_NAME='gemini-2.5-pro-exp-03-25'" >> ~/.bashrc
+echo "export GOOGLE_MODEL_NAME='your_preferred_model'" >> ~/.bashrc
 
 echo "export ALLOWED_USER_IDS='some_id1,some_id2,some_id3'" >> ~/.bashrc
 
@@ -81,10 +118,20 @@ echo "export TELEGRAM_LLM_BOT_TOKEN='<your_telegram_bot_token>'" >> ~/.bashrc
 # Optional: If you want the bot to work in group chats, do:
 echo "export ALLOWED_GROUP_IDS='group_id1,group_id2'" >> ~/.bashrc
 
+# Optional: Provide descriptions for known users.
+# This helps the bot understand who it's talking to.
+# Format: 'id1:description1;id2:description2'
+echo "export USERS_INFO='user_id1:Short description of user 1;user_id2:Notes about user 2'" >> ~/.bashrc
+
+# Optional: Specify trigger words for group chats.
+# If set, the bot will automatically respond in group chats to the messages that contais one of these words (case-insensitive).
+# Format: 'word1;word2;word3'
+echo "export TRIGGER_WORDS='sideload;bot name;question for bot'" >> ~/.bashrc
+
 source ~/.bashrc
 ```
 
-## 6. Run the main script
+## 8. Run the main script
 
 ```
 python3 main.py
@@ -94,7 +141,7 @@ To leave the script running even after you log out, press `Ctrl+b`, and then qui
 
 To return to the tmux session in the future, run `tmux attach -t session_name`.
 
-## Configuration
+## 9. Additional configuration
 
 The bot's behavior is controlled by settings in `config.py`. The main settings include:
 - `REPO_URL`: The GitHub repository containing the mindfile data. By default, the bot pulls the mindfile from https://github.com/RomanPlusPlus/open-source-human-mind.git.
@@ -102,5 +149,34 @@ The bot's behavior is controlled by settings in `config.py`. The main settings i
 - `REMOVE_CHAIN_OF_THOUGHT_FROM_ANSWER7`: Whether to remove chain-of-thought reasoning from responses. Removed only from the answer visible to the user. Both will still be used internally.
 - `REMOVE_INTERNAL_DIALOG_FROM_ANSWER7`: Same.
 
-You can modify these settings in the `config.py` file to customize the bot's behavior.
+See `config.py` for these and other settings.
 
+## 10. Add the bot to your group
+
+In telegram, find the official bot manager (@BotFather) and send him this:
+/setjoingroups
+
+In the menu, select your bot and click Enable. 
+
+In telegram, in a chat with your bot, click "..." in the top right corner and select Info.
+
+There, click "Add to group or channel" and select your group.
+
+If the bot complains that he can't chat in this group with the such and such ID,
+add the ID to the list of allowed IDs.
+
+After that, do the /setjoingroups thing again, but this time click Disable, so no one could add the bot to other groups.
+
+# The "tip of the tongue" pseudo-infinite context
+
+The scrip uses a computationally cheap way to implement (kinda) infinite context:
+every interaction, it randomly omits some parts of the huge mindfile. 
+
+Pros:
+- the entire huge midnfile is (eventually) used by the sideload
+- one can run huge sideloads locally, even with today's open-source models and hardware
+- the sideload's answers are additionally randomized, preventing identical answers to the same question
+- the approach emulates presque vu / jamais vu - the human tendency to temporarily forget many things, with the ability to recall them later.
+
+Cons:
+- the resulting sideload at any given time contains only a part of the mindfile. Judging by our experiments, it does not seem to be a problem.
