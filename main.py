@@ -1,5 +1,5 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -13,6 +13,7 @@ from utils.mind_data_manager import MindDataManager
 from conversation_manager import ConversationManager
 from app_logic import AppLogic
 from telegram.constants import ChatType, MessageEntityType
+from telegram.error import TelegramError, BadRequest, TimedOut, NetworkError, RetryAfter
 
 from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7
 
@@ -33,6 +34,121 @@ APPLICATION_LOGIC = AppLogic(
     allowed_group_ids=ALLOWED_GROUP_IDS
 )
 
+
+async def reply_text_wrapper(
+    update: Update, 
+    context: ContextTypes.DEFAULT_TYPE, 
+    text: str,
+    reply_markup=None,
+    parse_mode=None,
+    disable_web_page_preview=None,
+    disable_notification=None,
+    reply_to_message_id=None,
+    allow_sending_without_reply=True,
+    max_retries: int = 3,
+    fallback_to_send_message: bool = True
+) -> bool:
+    """
+    Wrapper for sending text messages with comprehensive error handling.
+    
+    Args:
+        update: The update object
+        context: The context object
+        text: The text to send
+        reply_markup: Optional inline keyboard markup
+        parse_mode: Optional parse mode (e.g., 'HTML', 'Markdown')
+        disable_web_page_preview: Optional boolean to disable link previews
+        disable_notification: Optional boolean to send without notification
+        reply_to_message_id: Optional message ID to reply to
+        allow_sending_without_reply: If True, send even if reply_to_message_id is invalid
+        max_retries: Maximum number of retry attempts for rate limits
+        fallback_to_send_message: If True, fallback to context.bot.send_message if reply fails
+        
+    Returns:
+        bool: True if message was sent successfully, False otherwise
+    """
+    if not text:
+        print("Warning: Attempted to send empty message")
+        return False
+        
+    # Truncate message if too long (Telegram limit is 4096 characters)
+    if len(text) > 4096:
+        print(f"Warning: Message too long ({len(text)} chars), truncating to 4096")
+        text = text[:4093] + "..."
+    
+    import asyncio
+    
+    for attempt in range(max_retries):
+        try:
+            common_args = {
+                "text": text,
+                "reply_markup": reply_markup,
+                "parse_mode": parse_mode,
+                "disable_web_page_preview": disable_web_page_preview,
+                "disable_notification": disable_notification,
+            }
+
+            if update.message and hasattr(update.message, 'reply_text'):
+                # Determine the actual message ID to reply to for update.message.reply_text
+                # If caller provides reply_to_message_id, that takes precedence.
+                # Otherwise, update.message.reply_text replies to update.message.message_id.
+                effective_reply_to_msg_id = reply_to_message_id if reply_to_message_id is not None else update.message.message_id
+
+                reply_params_obj = ReplyParameters(
+                    message_id=effective_reply_to_msg_id,
+                    allow_sending_without_reply=allow_sending_without_reply
+                )
+                await update.message.reply_text(
+                    **common_args,
+                    reply_parameters=reply_params_obj
+                )
+                return True
+            elif fallback_to_send_message and update.effective_chat:
+                send_args = {**common_args}
+                if reply_to_message_id is not None:
+                    # If caller wants to reply to a specific message via send_message
+                    reply_params_obj = ReplyParameters(
+                        message_id=reply_to_message_id,
+                        allow_sending_without_reply=allow_sending_without_reply
+                    )
+                    send_args["reply_parameters"] = reply_params_obj
+                else:
+                    # Not replying to a specific message via send_message.
+                    # Pass allow_sending_without_reply directly, as no ReplyParameters are involved.
+                    send_args["allow_sending_without_reply"] = allow_sending_without_reply
+                
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    **send_args
+                )
+                return True
+            else:
+                print("Error: No valid method to send message (no update.message or effective_chat)")
+                return False
+                
+        except Exception as e:
+            print(f"Error sending message (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
+            
+            # If this was the last attempt, give up
+            if attempt == max_retries - 1:
+                print(f"Failed to send message after {max_retries} attempts")
+                return False
+            
+            # Exponential backoff: 2^attempt seconds (1s, 2s, 4s, 8s, etc.)
+            wait_time = 2 ** attempt
+            
+            # Special handling for rate limit errors - use their suggested wait time
+            if hasattr(e, 'retry_after'):
+                wait_time = e.retry_after
+                print(f"Rate limited. Waiting {wait_time} seconds as requested by Telegram")
+            else:
+                print(f"Waiting {wait_time} seconds before retry...")
+            
+            await asyncio.sleep(wait_time)
+    
+    return False
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     print("In the start function...")
     user = update.effective_user
@@ -42,17 +158,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         keyboard = [[InlineKeyboardButton("Start", callback_data="start_game")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         welcome_message = f"Hello {user.first_name}, ich bin dein hilfreicher Assistent! Clicke 'Start'"
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
+        await reply_text_wrapper(
+            update=update,
+            context=context,
             text=welcome_message,
-            reply_markup=reply_markup,
+            reply_markup=reply_markup
         )
 
 
 async def start_new_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = "Wie kann ich dir helfen?"
     if update.message: # Can be triggered by a command
-        await update.message.reply_text(text)
+        await reply_text_wrapper(update, context, text)
     elif update.callback_query: # Can be triggered by a button press
         await update.callback_query.edit_message_text(text)
 
@@ -76,10 +193,7 @@ async def restrict(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = f"This group (ID: {chat_id}) is not authorized to use this bot."
     
     print(text)
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-    )
+    await reply_text_wrapper(update, context, text)
 
 
 def is_allowed(update: Update) -> bool:
@@ -213,12 +327,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 should_send_reply_based_on_mention_rules = bot_should_always_reply_in_group
 
         if answer and should_send_reply_based_on_mention_rules:
-            if provider_report and update.message: 
-                await update.message.reply_text(provider_report)
-            if update.message: 
-                await update.message.reply_text(answer)
-            elif update.effective_chat.id: 
-                 await context.bot.send_message(chat_id=update.effective_chat.id, text=answer)
+            if provider_report: 
+                await reply_text_wrapper(update, context, provider_report)
+            await reply_text_wrapper(update, context, answer)
             print(f"Replied with generated answer in chat {chat_id}.")
         elif not answer and should_send_reply_based_on_mention_rules:
              print(f"Logic indicated a reply should be sent in chat {chat_id}, but no answer was generated (generate_ai_reply was False). This is expected if not mentioned in group/mention-only mode.")
@@ -238,7 +349,7 @@ async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
         # Get the text after the command
         user_input = ' '.join(context.args)
         if not user_input:
-            await update.message.reply_text("Please provide a message after the command, like: /ask How are you?")
+            await reply_text_wrapper(update, context, "Please provide a message after the command, like: /ask How are you?")
             return
 
         username = update.effective_user.username
@@ -257,9 +368,9 @@ async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
         if provider_report: # Send provider switch report if any
-            await update.message.reply_text(provider_report)
+            await reply_text_wrapper(update, context, provider_report)
             
-        await update.message.reply_text(answer)
+        await reply_text_wrapper(update, context, answer)
     else:
         await restrict(update, context)
 
