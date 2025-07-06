@@ -308,7 +308,7 @@ def consolidate_empty_messages(lines, placeholder):
     return new_lines, chars_saved
 
 
-def shrink_text(text, target_len_chars):
+def shrink_dialogs_text(text, target_len_chars):
     """
     Iteratively remove random lines from text until it reaches the target length.
     Removed lines are replaced with <...>
@@ -399,7 +399,7 @@ def shrink_text(text, target_len_chars):
     # If consolidation saved enough chars and we're still over target, try removing more lines
     if chars_saved > 0 and (current_len - chars_saved) > target_len_chars:
         # Recursively shrink the consolidated text further if needed
-        return shrink_text("\n".join(consolidated_lines), target_len_chars)
+        return shrink_dialogs_text("\n".join(consolidated_lines), target_len_chars)
     
     # Rejoin the text
     return "\n".join(consolidated_lines)

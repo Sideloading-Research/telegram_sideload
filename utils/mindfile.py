@@ -7,7 +7,6 @@ from config import (
     SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
     STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
     STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
-    EXPENDABLE_MINDFILE_PART,
 )
 from utils.files_utils import get_existing_local_files
 from utils.github_tools import (
@@ -122,7 +121,7 @@ def build_source_tags(filename):
     return open_tag, close_tag
 
 
-def split_context_by_importance(context):
+def split_context_by_importance(context, expendable_tag: str = "dialogs"):
     """
     Split the context into three parts: before the expendable part, the expendable part, and after the expendable part.
 
@@ -132,7 +131,7 @@ def split_context_by_importance(context):
     Returns:
         Tuple of (before_expendable, expendable, after_expendable) strings
     """
-    open_tag, close_tag = build_source_tags(EXPENDABLE_MINDFILE_PART)
+    open_tag, close_tag = build_source_tags(expendable_tag)
 
     # Find the start and end positions of the expendable part
     start_pos = context.find(open_tag)
@@ -150,8 +149,6 @@ def split_context_by_importance(context):
     after_expendable = context[end_pos:]
 
     return before_expendable, expendable, after_expendable
-
-
 
 
 def get_system_message_and_context(files_dict, save_context_to_file7=False):

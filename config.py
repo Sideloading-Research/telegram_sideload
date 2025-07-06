@@ -60,9 +60,9 @@ MAX_TELEGRAM_MESSAGE_LEN = 4096 # hardcoded by Telegram
 
 CHARS_PER_TOKEN = 3584718 / 1064452 # experimental values for Gemini 2.5
 
-MAX_TOKENS_ALLOWED_IN_REQUEST = 1048576 # got it from Google's error message
+MAX_TOKENS_ALLOWED_IN_REQUEST = 1000000 # got it from Google's error message
 
-EXPENDABLE_MINDFILE_PART = "dialogs"
+PROTECTED_MINDFILE_PARTS = ["structured_self_facts", "structured_memories"]
 
 # Safety margin for token limit calculations
-TOKEN_SAFETY_MARGIN = 1.2
+TOKEN_SAFETY_MARGIN = 1.3
