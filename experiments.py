@@ -1,7 +1,7 @@
 from config import EXPENDABLE_MINDFILE_PART, REPO_URL, DATASET_LOCAL_DIR_PATH
 
 from utils.mindfile import build_source_tags, refresh_local_mindfile_data, get_system_message_and_context, split_context_by_importance
-from utils.text_shrinkage import shrink_text
+from utils.text_shrinkage_utils.shrink_dialogs import shrink_dialogs_text
 
 files_dict = refresh_local_mindfile_data(REPO_URL, DATASET_LOCAL_DIR_PATH)
 system_message, context = get_system_message_and_context(files_dict, save_context_to_file7=True)
@@ -26,7 +26,7 @@ print("(skip)")
 print(after_expendable[-100:])
 """
 
-res = shrink_text(expendable, 1500000)
+res = shrink_dialogs_text(expendable, 1500000)
 
 # write to file
 with open("expendable_shrinked.txt", "w") as f:
