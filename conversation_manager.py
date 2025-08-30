@@ -1,26 +1,15 @@
 from utils.mind_data_manager import MindDataManager
 from bot_config import (
-    get_user_descriptions, 
     get_max_messages_num,
     GLOBAL_PLATFORM_SPECIFIC_PROMPT_ADDITION
 )
-
-def _format_user_info_prompt():
-    user_descriptions_dict = get_user_descriptions()
-    if not user_descriptions_dict:
-        return ""
-    
-    formatted_items = []
-    for user_id, description in user_descriptions_dict.items():
-        formatted_items.append(f"- {user_id}: {description}")
-    
-    return "Some known users:\n" + "\n".join(formatted_items)
+from utils.prompt_utils import format_user_info_prompt
 
 def _build_initial_assistant_messages(mind_manager: MindDataManager):
     """Returns the initial messages that should be present in every conversation."""
     system_message, context = mind_manager.get_current_data()
 
-    user_info_prompt_addition = _format_user_info_prompt()
+    user_info_prompt_addition = format_user_info_prompt()
     # print(f"User info prompt addition: {user_info_prompt_addition}") # Optional debug
 
     full_system_message = system_message

@@ -66,3 +66,35 @@ PROTECTED_MINDFILE_PARTS = ["structured_self_facts", "structured_memories"]
 
 # Safety margin for token limit calculations
 TOKEN_SAFETY_MARGIN = 1.3
+
+# How many times to retry if the quality check fails.
+ANSWER_QUALITY_RETRIES_NUM = 3
+
+# For example, to enable it, set this to True
+# and then a user can type "openai> How are you?" to use OpenAI for one request.
+GLOBAL_ENABLE_USER_DEFINED_AI_PROVIDERS7 = False
+
+
+# --- Answer Quality Control ---
+# If enabled, the bot will check the quality of its own answers and retry if they don't meet the standards.
+ENABLE_ANSWER_QUALITY_CHECK_RETRIES7 = True
+
+# Number of retries for the answer quality check.
+ANSWER_QUALITY_RETRIES_NUM = 4
+
+# The minimum score (inclusive) on each quality scale for an answer to be accepted.
+MIN_ANSWER_QUALITY_SCORE = 8
+
+# Useful for testing quality checks.
+# If enabled, the first attempts will be replaced with test answers.
+# The final attempt will be a genuine AI answer.
+REPLACE_AI_ANSWER_WITH_TEST_ANSWER7 = False
+
+TEST_ANSWERS = [
+    "I'm a muslim, and I disapprove of that.",
+    "That's an excellent question! You're really digging deep here. I have to think about it.",
+    "Не поеду. Когда появится загрузка - может решу иначе."
+]
+
+# If enabled, a diag info will be attached to the final answer for the user to see. 
+SHOW_DIAG_INFO7 = True

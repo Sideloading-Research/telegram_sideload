@@ -19,6 +19,98 @@ from utils.github_tools import (
 )
 
 
+class Mindfile:
+    def __init__(self, files_dict: dict[str, str]):
+        if not files_dict:
+            raise ValueError("files_dict cannot be empty.")
+        self.files_dict = files_dict
+        self._validate_required_files()
+
+    def _validate_required_files(self):
+        required_files = [
+            SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
+            STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
+            STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
+        ]
+        for req_file in required_files:
+            if req_file not in self.files_dict:
+                raise ValueError(f"Required mindfile part '{req_file}' not found in files_dict.")
+
+    def _read_file_content(self, filename: str) -> str:
+        """Reads content of a specific file from the files_dict."""
+        file_path = self.files_dict.get(filename)
+        if not file_path or not os.path.exists(file_path):
+            # This should ideally not happen if _validate_required_files is comprehensive
+            raise FileNotFoundError(f"File '{filename}' not found at path: {file_path}")
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+
+    def get_system_message(self) -> str:
+        """Extracts and returns the system message."""
+        return self._read_file_content(SYSTEM_MESSAGE_FILE_WITHOUT_EXT)
+
+    def get_context(self, mindfile_parts: list[str] | None = None) -> str:
+        """
+        Builds and returns the context string from the specified mindfile parts.
+
+        Args:
+            mindfile_parts: A list of filenames (without extension) to include in the context.
+                            If None, all available files except the system message will be used.
+
+        Returns:
+            A string containing the combined and formatted context.
+        """
+        non_system_contents = []
+        
+        # Determine which files to process
+        files_to_process = mindfile_parts
+        if files_to_process is None:
+            files_to_process = [f for f in self.files_dict.keys() if f != SYSTEM_MESSAGE_FILE_WITHOUT_EXT]
+
+        for file in files_to_process:
+            if file in self.files_dict and file != SYSTEM_MESSAGE_FILE_WITHOUT_EXT:
+                content = self._read_file_content(file)
+                non_system_contents.append((file, content))
+
+        # Sort contents to ensure structured facts appear first and memories last (if they exist in the list)
+        sorted_contents = self._sort_context_contents(non_system_contents)
+
+        # Merge contents with source tags
+        context = ""
+        for filename, content in sorted_contents:
+            open_tag, close_tag = build_source_tags(filename)
+            context += f"{open_tag}\n\n{content}\n\n{close_tag}\n\n\n"
+
+        return context.strip()
+
+    def _sort_context_contents(self, contents: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        """
+        Sorts context contents to ensure structured facts appear first and memories last.
+        Other content is sorted alphabetically by filename.
+        """
+        structured_facts = []
+        structured_memories = []
+        other_content = []
+        
+        facts_filename = STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT
+        memories_filename = STRUCTURED_MEMORIES_FILE_WITHOUT_EXT
+
+        for item in contents:
+            if item[0] == facts_filename:
+                structured_facts.append(item)
+            elif item[0] == memories_filename:
+                structured_memories.append(item)
+            else:
+                other_content.append(item)
+                
+        # Combine with structured facts first, regular content in middle, memories last
+        return (
+            structured_facts
+            + sorted(other_content, key=lambda x: x[0])
+            + structured_memories
+        )
+
+
 def verify_dataset_path(dataset_path):
     """Verify the dataset path exists."""
     if not os.path.exists(dataset_path):
@@ -152,40 +244,24 @@ def split_context_by_importance(context, expendable_tag: str = "dialogs"):
 
 
 def get_system_message_and_context(files_dict, save_context_to_file7=False):
-    system_message = None
-    non_system_contents = []
-    for file, path in files_dict.items():
-        if file == SYSTEM_MESSAGE_FILE_WITHOUT_EXT:
-            with open(path, "r") as f:
-                system_message = f.read()
-        else:
-            with open(path, "r") as f:
-                file_content = f.read().strip()
-                non_system_contents.append((file, file_content))
-
-    # Sort contents to ensure structured facts appear first and memories last
-    non_system_contents = sort_context_contents(
-        non_system_contents, 
-        STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
-        STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
-    )
-
-    # Merge contents with source tags
-    context = ""
-    for filename, content in non_system_contents:
-        open_tag, close_tag = build_source_tags(filename)
-        context += f"{open_tag}\n\n{content}\n\n{close_tag}\n\n\n"
-
-    if system_message is None:
-        msg = "System message not found."
-        msg += f"It should be named {SYSTEM_MESSAGE_FILE_WITHOUT_EXT},"
-        msg += (
-            f"and be located in the directory {DATASET_DIR_NAME_IN_REPO} in the repo."
-        )
-        raise ValueError(msg)
-
-    if save_context_to_file7:
-        with open(f"context_for_debug.txt", "w") as f:
-            f.write(context)
-
-    return system_message, context.strip()
+    """
+    This function is now a wrapper around the Mindfile class for backward compatibility.
+    """
+    try:
+        mindfile = Mindfile(files_dict)
+        system_message = mindfile.get_system_message()
+        context = mindfile.get_context() # Gets context from all available files
+        
+        if save_context_to_file7:
+            with open("context_for_debug.txt", "w", encoding="utf-8") as f:
+                f.write(f"--- SYSTEM MESSAGE ---\n{system_message}\n\n--- CONTEXT ---\n{context}")
+        
+        return system_message, context
+    except (ValueError, FileNotFoundError) as e:
+        # Provide a more informative error message that guides the user.
+        msg = f"Error processing mindfile: {e}. "
+        msg += f"Ensure the '{DATASET_DIR_NAME_IN_REPO}' directory in your repo contains the required files, "
+        msg += f"including '{SYSTEM_MESSAGE_FILE_WITHOUT_EXT}.txt'."
+        print(msg)
+        # Raising the exception again to halt execution, as this is a critical error.
+        raise ValueError(msg) from e
