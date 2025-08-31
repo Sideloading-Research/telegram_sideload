@@ -45,6 +45,10 @@ class Mindfile:
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read().strip()
 
+    def get_file_content(self, filename: str) -> str:
+        """Reads and returns the content of a specific file."""
+        return self._read_file_content(filename)
+
     def get_system_message(self) -> str:
         """Extracts and returns the system message."""
         return self._read_file_content(SYSTEM_MESSAGE_FILE_WITHOUT_EXT)

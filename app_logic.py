@@ -13,6 +13,7 @@ from config import (
 )
 from telegram.constants import ChatType # ADDED - for explicit comparison
 from workers.quality_checks_worker import QualityChecksWorker
+from workers.style_worker import StyleWorker
 from utils.prompt_utils import format_user_info_prompt
 
 
@@ -51,13 +52,20 @@ class AppLogic:
         # Determine the number of retries
         retries = ANSWER_QUALITY_RETRIES_NUM if ENABLE_ANSWER_QUALITY_CHECK_RETRIES7 else 1
         
-        # Instantiate the worker outside the loop for efficiency
+        # Instantiate workers outside the loop for efficiency
         quality_worker = None
+        style_worker = None # ADDED
         user_info_prompt = None
+
+        mindfile_instance = self.conversation_manager.mind_manager.get_mindfile()
+
         if ENABLE_ANSWER_QUALITY_CHECK_RETRIES7:
-            mindfile_instance = self.conversation_manager.mind_manager.get_mindfile()
             quality_worker = QualityChecksWorker(mindfile=mindfile_instance)
             user_info_prompt = format_user_info_prompt()
+
+        # Always instantiate style_worker to test its output
+        style_worker = StyleWorker(mindfile=mindfile_instance)
+
 
         for attempt in range(retries):
             print(f"\n--- Answer Generation Attempt {attempt + 1}/{retries} ---")
@@ -72,12 +80,28 @@ class AppLogic:
             else:
                 current_answer, current_provider_report = get_ai_response(messages_history, raw_user_message, max_length=500)
             
+            # --- Style Worker Integration ---
+            styled_answer = current_answer  # Fallback to the original answer
+            if style_worker and current_answer:
+                print("--- Running Style Worker ---")
+                try:
+                    styled_answer = style_worker.process(current_answer, user_info_prompt)
+                    print(f"Original answer:\n---\n{current_answer}\n---")
+                    print("########################################################")
+                    print(f"Styled answer:\n---\n{styled_answer}\n---")
+                    print("########################################################")
+                except Exception as e:
+                    print(f"An error occurred during style worker processing: {e}")
+                    # On error, styled_answer remains as the original current_answer
+                print("--- Style Worker Finished ---\n")
+            # --- End of Style Worker Integration ---
+
             # The provider report from the first attempt is the most relevant one.
             if provider_report is None:
                 provider_report = current_provider_report
 
             if not quality_worker:
-                best_answer = current_answer
+                best_answer = styled_answer
                 break
 
             try:
@@ -86,7 +110,7 @@ class AppLogic:
                 
                 quality_scores = quality_worker.process(
                     conversation_history=actual_chat_history[-4:],
-                    original_answer=current_answer,
+                    original_answer=styled_answer,
                     user_info_prompt=user_info_prompt
                 )
                 print(f"Quality Scores: {quality_scores}")
@@ -98,34 +122,34 @@ class AppLogic:
                     # This block ensures that even if all answers fall below the quality threshold,
                     # we keep track of and ultimately return the one with the highest total score.
                     if best_answer is None or current_score_sum > best_score_sum:
-                        best_answer = current_answer
+                        best_answer = styled_answer
                         best_score_sum = current_score_sum
                         best_scores = quality_scores
 
                     if all(score >= MIN_ANSWER_QUALITY_SCORE for score in quality_scores.values()):
                         print("Quality standards met. Finalizing answer.")
                         retries_taken = attempt
-                        best_answer = current_answer
+                        best_answer = styled_answer
                         break
                     else:
                         print(f"Quality standards not met (min score: {MIN_ANSWER_QUALITY_SCORE}). Retrying...")
                 else:
                     print("Quality check failed to return scores. Using this answer as a fallback.")
                     if best_answer is None:
-                        best_answer = current_answer
+                        best_answer = styled_answer
                     break 
 
             except Exception as e:
                 print(f"An error occurred during the quality check: {e}")
                 if best_answer is None:
-                    best_answer = current_answer
+                    best_answer = styled_answer
                 break
         else:
             # This block runs if the loop completes without a 'break', meaning all retries were used.
             retries_taken = retries - 1 if retries > 0 else 0
 
         # Fallback to the last generated answer if best_answer is somehow still None
-        final_ai_answer = best_answer if best_answer is not None else current_answer
+        final_ai_answer = best_answer if best_answer is not None else styled_answer
         
         diag_info = {
             "retries": retries_taken,
