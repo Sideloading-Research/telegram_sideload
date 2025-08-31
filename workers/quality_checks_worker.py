@@ -1,4 +1,6 @@
 import re
+
+from config import ANSWER_TO_USER_TAG, CHAIN_OF_THOUGHT_TAG
 from workers.base_worker import BaseWorker
 from utils.mindfile import Mindfile
 from ai_service import get_ai_response
@@ -37,6 +39,8 @@ class QualityChecksWorker(BaseWorker):
             8 -
             9 -
             10 - Perfect.
+            
+            Only rare exceptionally good answers deserve the 10. If you're thinking about assigning 10, double-check that the answer fully passes the high standards of yours. 
 
             A few tips for evaluating sys_message_compliance:
             - Split the system message into logical parts, and check each against the original answer.
@@ -46,11 +50,14 @@ class QualityChecksWorker(BaseWorker):
             We need an objective and honest assessment. Remember the stakes.  
             It's not enough for the answer to be recognizable as coming from the persona. We must critically evaluate it, detect all imperfections.
 
+            Note: focus on the user-facing part of the answer (the one between '{ANSWER_TO_USER_TAG}' tags).
+            If other parts (e.g. the '{CHAIN_OF_THOUGHT_TAG}') have formatting issues etc, you can ignore them.
+
             Conversation History:
             "{conversation_history}"
 
             Original Answer to Evaluate:
-            '{original_answer}'
+            '{original_answer}'            
 
             Please be very concise.
             
