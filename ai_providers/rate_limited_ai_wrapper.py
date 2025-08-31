@@ -17,6 +17,7 @@ RATE_LIMIT_PERIOD_S = 60  # 1 min
 
 MAX_RETRIES = 17
 DELAY_CONSTANT_S = 1
+BASE_DELAY_S = 10
 
 PROVIDER_FROM_ENV = CREDS.get("AI_PROVIDER", "google")
 MAX_PRINT_CHARS = 100  # Max characters to print for each message for debugging
@@ -141,7 +142,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                     print(final_error_message)
                     return f"{answer if answer is not None else ''}{retry_info}"
                 
-                delay = (2 ** retries) * DELAY_CONSTANT_S
+                delay = BASE_DELAY_S + (2 ** retries) * DELAY_CONSTANT_S
                 log_msg_failed_attempt += f"Retrying in {delay:.2f}s..."
                 print(log_msg_failed_attempt)
                 time.sleep(delay)
@@ -155,7 +156,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                 return msg
             
             # Exponential backoff: 2^retries * 100ms
-            delay = (2 ** retries) * DELAY_CONSTANT_S
+            delay = BASE_DELAY_S + (2 ** retries) * DELAY_CONSTANT_S
             print(f"Attempt {retries}/{MAX_RETRIES} failed with exception: {e}. Retrying in {delay:.2f}s...")
             time.sleep(delay)
 
