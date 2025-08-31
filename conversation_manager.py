@@ -3,7 +3,7 @@ from bot_config import (
     get_max_messages_num,
     GLOBAL_PLATFORM_SPECIFIC_PROMPT_ADDITION
 )
-from utils.prompt_utils import format_user_info_prompt
+from utils.prompt_utils import format_user_info_prompt, build_initial_conversation_history
 
 def _build_initial_assistant_messages(mind_manager: MindDataManager):
     """Returns the initial messages that should be present in every conversation."""
@@ -21,10 +21,7 @@ def _build_initial_assistant_messages(mind_manager: MindDataManager):
     # Debug print
     # print(f"Full system message being used:\n{full_system_message}")
 
-    return [
-        {"role": "system", "content": full_system_message},
-        {"role": "assistant", "content": context}
-    ]
+    return build_initial_conversation_history(system_message=full_system_message, context=context)
 
 class Conversation:
     def __init__(self, mind_manager: MindDataManager):

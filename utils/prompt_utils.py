@@ -11,3 +11,19 @@ def format_user_info_prompt():
         formatted_items.append(f"- {user_id}: {description}")
     
     return "Some known users:\n" + "\n".join(formatted_items)
+
+
+def build_initial_conversation_history(system_message: str, context: str | None = None, user_prompt: str | None = None) -> list[dict[str, str]]:
+    """
+    Builds the initial conversation history with a system message and optional context.
+    Context is placed in an assistant message, which is a better practice than stuffing it into the system prompt.
+    """
+    messages = [{"role": "system", "content": system_message}]
+    
+    if context:
+        messages.append({"role": "assistant", "content": context})
+    
+    if user_prompt:
+        messages.append({"role": "user", "content": user_prompt})
+        
+    return messages

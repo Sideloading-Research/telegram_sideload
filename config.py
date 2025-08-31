@@ -4,8 +4,14 @@ DATASET_DIR_NAME_IN_REPO = "full_dataset"
 
 DATASET_LOCAL_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
 
-PLATFORM_SPECIFIC_PROMPT_ADDITION="""Note: 
-This is an instant messaging chat, so keep your answers short.
+IM_CHAT_LENGTH_NOTE = """
+This is an instant messaging chat. The answer must be very short. 
+If the answer is longer than 5 short sentences, it's a fail. 
+No need to cramp everything into a single message. It's a conversation, after all. You can always add more, later.
+"""
+
+PLATFORM_SPECIFIC_PROMPT_ADDITION = f"""Note: 
+{IM_CHAT_LENGTH_NOTE}
 
 If you see messages from several users, you're most likely in a group chat.
 In group chats, you're an equal participant among many. So, not every discussion is about you, or with you. No need to address every message you see.

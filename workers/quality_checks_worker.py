@@ -2,6 +2,7 @@ import re
 from workers.base_worker import BaseWorker
 from utils.mindfile import Mindfile
 from ai_service import get_ai_response
+from utils.prompt_utils import build_initial_conversation_history
 
 class QualityChecksWorker(BaseWorker):
     def __init__(self, mindfile: Mindfile):
@@ -37,7 +38,13 @@ class QualityChecksWorker(BaseWorker):
             9 -
             10 - Perfect.
 
+            A few tips for evaluating sys_message_compliance:
+            - Split the system message into logical parts, and check each against the original answer.
+            - List all the imperfections and errors of the original answer. 
+            - Formatting, style, text length - do matter. Does the original answer look like it was written by the persona or by an LLM?
+
             We need an objective and honest assessment. Remember the stakes.  
+            It's not enough for the answer to be recognizable as coming from the persona. We must critically evaluate it, detect all imperfections.
 
             Conversation History:
             "{conversation_history}"
@@ -72,15 +79,13 @@ class QualityChecksWorker(BaseWorker):
         if user_info_prompt:
             system_message += "\n\n" + user_info_prompt
 
-        # The context for the LLM call includes the system message and the worker-specific context.
-        # The conversation history for the LLM call will contain this context.
-        llm_conversation_history = [
-            {"role": "system", "content": system_message + "\n" + worker_context}
-        ]
-        
-        # The actual prompt for the quality check is the user message in this context.
         quality_prompt = self._construct_prompt(conversation_history, original_answer)
-        llm_conversation_history.append({"role": "user", "content": quality_prompt})
+
+        llm_conversation_history = build_initial_conversation_history(
+            system_message=system_message,
+            context=worker_context,
+            user_prompt=quality_prompt
+        )
 
         # We don't need the provider report for this internal call.
         raw_quality_assessment, _ = get_ai_response(
