@@ -37,11 +37,21 @@ class Mindfile:
                 raise ValueError(f"Required mindfile part '{req_file}' not found in files_dict.")
 
     def _read_file_content(self, filename: str) -> str:
-        """Reads content of a specific file from the files_dict."""
-        file_path = self.files_dict.get(filename)
-        if not file_path or not os.path.exists(file_path):
-            # This should ideally not happen if _validate_required_files is comprehensive
-            raise FileNotFoundError(f"File '{filename}' not found at path: {file_path}")
+        """
+        Reads content of a specific file from the files_dict or internal_assets.
+        """
+        if filename.startswith("internal_assets:"):
+            # Handle internal assets
+            asset_name = filename.split(":", 1)[1]
+            file_path = os.path.join("internal_assets", f"{asset_name}.txt")
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Internal asset '{asset_name}' not found at path: {file_path}")
+        else:
+            # Handle standard mindfile parts
+            file_path = self.files_dict.get(filename)
+            if not file_path or not os.path.exists(file_path):
+                raise FileNotFoundError(f"Mindfile part '{filename}' not found at path: {file_path}")
+
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read().strip()
 
@@ -69,10 +79,10 @@ class Mindfile:
         # Determine which files to process
         files_to_process = mindfile_parts
         if files_to_process is None:
-            files_to_process = [f for f in self.files_dict.keys() if f != SYSTEM_MESSAGE_FILE_WITHOUT_EXT]
+            files_to_process = [f for f in self.files_dict.keys()]
 
         for file in files_to_process:
-            if file in self.files_dict and file != SYSTEM_MESSAGE_FILE_WITHOUT_EXT:
+            if file.startswith("internal_assets:") or file in self.files_dict:
                 content = self._read_file_content(file)
                 non_system_contents.append((file, content))
 

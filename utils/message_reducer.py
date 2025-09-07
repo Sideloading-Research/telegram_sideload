@@ -6,9 +6,9 @@ import re
 
 
 def find_context_message_index(messages):
-    """Find the index of the assistant message containing context."""
+    """Find the index of the message containing context."""
     for i, msg in enumerate(messages):
-        if msg.get("role") == "assistant" and "<source:" in msg.get("content", ""):
+        if msg.get("role") in ["assistant", "system"] and "<source:" in msg.get("content", ""):
             return i
     return None
 
@@ -101,6 +101,8 @@ def reduce_context_in_messages(messages):
         - reduced_messages is a new message list with reduced context
         - success is a boolean indicating if reduction was successful
     """
+    print("# Reducing context")
+
     # Make a deep copy to avoid modifying the original
     reduced_messages = copy.deepcopy(messages)
     
@@ -108,7 +110,7 @@ def reduce_context_in_messages(messages):
     context_message_idx = find_context_message_index(reduced_messages)
     
     if context_message_idx is None:
-        print("No context message found to reduce")
+        print("# No context message found to reduce")
         return reduced_messages, False
     
     # Extract context from the message
@@ -148,7 +150,7 @@ def reduce_context_in_messages(messages):
             original_lengths[seg["tag"]] = original_lengths.get(seg["tag"], 0) + len(seg["text"])
 
     if not shrinkable_segments:
-        print("No shrinkable tagged content found to reduce")
+        print("# No shrinkable tagged content found to reduce")
         return reduced_messages, False
 
     placeholder_len = len("<...>")
@@ -161,7 +163,7 @@ def reduce_context_in_messages(messages):
     iteration = 0
     while is_token_limit_of_request_exceeded(reduced_messages):
         iteration += 1
-        print(f"Reduction iteration {iteration}: applying 10% shrink to each source")
+        print(f"# Reduction iteration {iteration}: applying 10% shrink to each source")
 
         any_shrunk = False
         for seg in shrinkable_segments:

@@ -69,7 +69,7 @@ class StyleWorker(BaseWorker):
         """
         return prompt
 
-    def process(self, original_answer: str, user_info_prompt: str | None = None) -> str:
+    def _process(self, original_answer: str, user_info_prompt: str | None = None) -> str:
         if not original_answer or not original_answer.strip():
             print("StyleWorker: Received empty answer to style. Returning it as is.")
             return original_answer

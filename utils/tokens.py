@@ -36,8 +36,8 @@ def is_token_limit_of_request_exceeded(messages, safety_margin=None):
 
 
     res = total_tokens * safety_margin > MAX_TOKENS_ALLOWED_IN_REQUEST
-    #print(f"Token limit exceeded: {res}")
-    #print(f"Total tokens in messages (estimated): {total_tokens}")
+    print(f"## Token limit exceeded: {res}")
+    print(f"## Total tokens in messages (estimated): {total_tokens}")
     #print(f"Safety margin: {safety_margin}")
     #print(f"Max tokens allowed in request: {MAX_TOKENS_ALLOWED_IN_REQUEST}")
     return res

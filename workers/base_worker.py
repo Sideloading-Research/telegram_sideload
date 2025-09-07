@@ -10,8 +10,22 @@ class BaseWorker(ABC):
         self.config = WORKERS_CONFIG[worker_name]
         self.mindfile_parts = self.config["mindfile_parts"]
 
-    @abstractmethod
     def process(self, *args, **kwargs):
+        """
+        A wrapper around the main `_process` method to handle logging.
+        """
+        # Integration worker is the top-level orchestrator
+        log_prefix = "#" if self.worker_name == "integration_worker" else "##"
+        
+        print(f"\n{log_prefix}--- Running {self.worker_name} ---")
+        try:
+            result = self._process(*args, **kwargs)
+            return result
+        finally:
+            print(f"{log_prefix}--- {self.worker_name} Finished ---\n")
+
+    @abstractmethod
+    def _process(self, *args, **kwargs):
         """
         Main method to be implemented by each worker.
         It will take specific arguments depending on the worker's role.
