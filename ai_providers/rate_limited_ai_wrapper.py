@@ -17,7 +17,7 @@ RATE_LIMIT_PERIOD_S = 60  # 1 min
 
 MAX_RETRIES = 17
 DELAY_CONSTANT_S = 1
-BASE_DELAY_S = 10
+BASE_DELAY_S = 30
 
 PROVIDER_FROM_ENV = CREDS.get("AI_PROVIDER", "google")
 MAX_PRINT_CHARS = 100  # Max characters to print for each message for debugging

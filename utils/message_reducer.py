@@ -1,14 +1,14 @@
 import copy
 from utils.text_shrinkage_utils.controller import shrink_any_text
 from utils.tokens import count_tokens, is_token_limit_of_request_exceeded, MAX_TOKENS_ALLOWED_IN_REQUEST
-from config import TOKEN_SAFETY_MARGIN, PROTECTED_MINDFILE_PARTS
+from config import TOKEN_SAFETY_MARGIN, PROTECTED_MINDFILE_PARTS, SOURCE_TAG_OPEN, SOURCE_TAG_CLOSE
 import re
 
 
 def find_context_message_index(messages):
     """Find the index of the message containing context."""
     for i, msg in enumerate(messages):
-        if msg.get("role") in ["assistant", "system"] and "<source:" in msg.get("content", ""):
+        if msg.get("role") in ["assistant", "system"] and SOURCE_TAG_OPEN in msg.get("content", ""):
             return i
     return None
 
@@ -101,7 +101,7 @@ def reduce_context_in_messages(messages):
         - reduced_messages is a new message list with reduced context
         - success is a boolean indicating if reduction was successful
     """
-    print("# Reducing context")
+    print("Reducing context")
 
     # Make a deep copy to avoid modifying the original
     reduced_messages = copy.deepcopy(messages)
@@ -110,14 +110,16 @@ def reduce_context_in_messages(messages):
     context_message_idx = find_context_message_index(reduced_messages)
     
     if context_message_idx is None:
-        print("# No context message found to reduce")
+        print("No context message found to reduce")
         return reduced_messages, False
     
     # Extract context from the message
     context = reduced_messages[context_message_idx]["content"]
     
-    # ---------------- NEW multi-source parsing ----------------
-    SEG_PATTERN = re.compile(r"<source:(?P<tag>[^>]+)>.*?</source:\1>", re.DOTALL)
+    open_tag_base = re.escape(SOURCE_TAG_OPEN)
+    close_tag_base = re.escape(SOURCE_TAG_CLOSE)
+    
+    SEG_PATTERN = re.compile(rf"{open_tag_base}(?P<tag>[^>]+)>.*?{close_tag_base}\1>", re.DOTALL)
 
     # Build ordered list of segments: either raw (untagged) or tagged blocks.
     segments = []  # list of dicts {type: 'raw'|'tagged', 'text': str, 'tag': str|None}
@@ -150,7 +152,7 @@ def reduce_context_in_messages(messages):
             original_lengths[seg["tag"]] = original_lengths.get(seg["tag"], 0) + len(seg["text"])
 
     if not shrinkable_segments:
-        print("# No shrinkable tagged content found to reduce")
+        print("No shrinkable tagged content found to reduce")
         return reduced_messages, False
 
     placeholder_len = len("<...>")
@@ -163,7 +165,7 @@ def reduce_context_in_messages(messages):
     iteration = 0
     while is_token_limit_of_request_exceeded(reduced_messages):
         iteration += 1
-        print(f"# Reduction iteration {iteration}: applying 10% shrink to each source")
+        print(f"Reduction iteration {iteration}: applying 10% shrink to each source")
 
         any_shrunk = False
         for seg in shrinkable_segments:
@@ -178,7 +180,7 @@ def reduce_context_in_messages(messages):
             source_type = "dialogs" if seg["tag"] == "dialogs" else "generic"
 
             # Extract inner content (without wrapping tags) to shrink, then rewrap
-            inner_pattern = re.compile(rf"<source:{seg['tag']}>\s*(.*?)\s*</source:{seg['tag']}>", re.DOTALL)
+            inner_pattern = re.compile(rf"{open_tag_base}{seg['tag']}>\s*(.*?)\s*{close_tag_base}{seg['tag']}>", re.DOTALL)
             inner_match = inner_pattern.match(seg["text"])
             if not inner_match:
                 # Fallback: shrink whole block as plain text
@@ -188,7 +190,7 @@ def reduce_context_in_messages(messages):
             else:
                 inner_content = inner_match.group(1)
                 new_inner = shrink_any_text(inner_content, new_len, source_type=source_type)
-                seg["text"] = f"<source:{seg['tag']}>\n\n{new_inner}\n\n</source:{seg['tag']}>"
+                seg["text"] = f"{SOURCE_TAG_OPEN}{seg['tag']}>\n\n{new_inner}\n\n{SOURCE_TAG_CLOSE}{seg['tag']}>"
 
             if len(seg["text"]) < cur_len:
                 any_shrunk = True

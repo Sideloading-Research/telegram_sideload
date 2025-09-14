@@ -1,3 +1,11 @@
+from utils.text_utils import (
+    find_sentence_end_before,
+    find_sentence_start_after,
+    find_word_break_left,
+    find_word_break_right,
+)
+
+
 def shrink_universal_text(text: str, target_len_chars: int) -> str:
     """Shrink any text to roughly *target_len_chars* characters.
 
@@ -13,6 +21,8 @@ def shrink_universal_text(text: str, target_len_chars: int) -> str:
     3.  We try to cut at the closest **word boundary** (space/new-line) so that
         we do not break words in half.  This keeps the output more readable
         while still deterministic and lightweight (no heavy NLP dependencies).
+
+    Prefer cutting on **sentence boundaries**; fall back to word boundaries.
 
     The algorithm is *O(n)* in the length of the input and requires no external
     libraries beyond the Python standard library.
@@ -35,67 +45,22 @@ def shrink_universal_text(text: str, target_len_chars: int) -> str:
     head_len = remaining_len // 2
     tail_len = remaining_len - head_len  # ensures total matches exactly
 
-    # --- Helper utilities -------------------------------------------------
-    # Prefer cutting on **sentence boundaries**; fall back to word boundaries.
-
-    SENTENCE_TOKENS = [". ", "? ", "! ", ".\n", "?\n", "!\n"]
-
-    def _find_sentence_end_before(segment: str) -> int:
-        """Return index *after* the last sentence-ending punctuation in segment.
-
-        If no sentence boundary exists, returns -1.
-        """
-        best = -1
-        for token in SENTENCE_TOKENS:
-            idx = segment.rfind(token)
-            if idx != -1:
-                best = max(best, idx + 1)  # index of punctuation char
-        return best
-
-    def _find_sentence_start_after(segment: str) -> int:
-        """Return index *at* start of first sentence inside segment.
-
-        That is, the position just **after** the first punctuation token if
-        present, otherwise -1.
-        """
-        best = -1
-        for token in SENTENCE_TOKENS:
-            idx = segment.find(token)
-            if idx != -1:
-                # Ensure we pick the earliest occurrence
-                candidate = idx + len(token)
-                if best == -1 or candidate < best:
-                    best = candidate
-        return best
-
-    # Fallbacks for word boundaries.
-    def _find_word_break_left(segment: str) -> int:
-        cut = segment.rfind(" ")
-        if cut == -1:
-            cut = segment.rfind("\n")
-        return cut
-
-    def _find_word_break_right(segment: str) -> int:
-        cut = segment.find(" ")
-        if cut == -1:
-            cut = segment.find("\n")
-        return cut
     # ----------------------------------------------------------------------
 
-    head_part = text[: head_len]
+    head_part = text[:head_len]
     tail_part = text[-tail_len:]
 
     # Try sentence boundary first
-    cut_left = _find_sentence_end_before(head_part)
+    cut_left = find_sentence_end_before(head_part)
     if cut_left == -1:
-        cut_left = _find_word_break_left(head_part)
+        cut_left = find_word_break_left(head_part)
 
     if cut_left != -1 and cut_left < len(head_part) - 8:  # keep reasonable size
         head_part = head_part[: cut_left + 1].rstrip()
 
-    cut_right = _find_sentence_start_after(tail_part)
+    cut_right = find_sentence_start_after(tail_part)
     if cut_right == -1:
-        cut_right = _find_word_break_right(tail_part)
+        cut_right = find_word_break_right(tail_part)
 
     if 0 < cut_right < len(tail_part) - 8:
         tail_part = tail_part[cut_right:].lstrip()
@@ -109,6 +74,6 @@ def shrink_universal_text(text: str, target_len_chars: int) -> str:
     # Edge-case guard: Ensure we didn't overshoot due to adjustments. If we did,
     # simply hard truncate from the end.
     if len(shrunk_text) > target_len_chars:
-        shrunk_text = shrunk_text[: target_len_chars]
+        shrunk_text = shrunk_text[:target_len_chars]
 
     return shrunk_text

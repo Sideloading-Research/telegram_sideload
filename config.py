@@ -49,6 +49,11 @@ SYSTEM_MESSAGE_FILE_WITHOUT_EXT = "system_message"
 STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT = "structured_self_facts" 
 STRUCTURED_MEMORIES_FILE_WITHOUT_EXT = "structured_memories"
 
+WORKERS_OBLIGATORY_PARTS = [ # supplied to each worker, making it "mini-me"
+    SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
+    STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
+]
+
 # How often to check if the mindfile has changed in the repo.
 REFRESH_EVERY_N_REQUESTS = 10
 
@@ -68,9 +73,10 @@ CHARS_PER_TOKEN = 3584718 / 1064452 # experimental values for Gemini 2.5
 
 MAX_TOKENS_ALLOWED_IN_REQUEST = 1000000 # got it from Google's error message
 
+
 PROTECTED_MINDFILE_PARTS = ["structured_self_facts", "structured_memories"]
 
-# Safety margin for token limit calculations
+# Safety margin for token limit calculations. Must be greater than 1.0.
 TOKEN_SAFETY_MARGIN = 1.3
 
 # How many times to retry if the quality check fails.
@@ -94,3 +100,26 @@ MIN_ANSWER_QUALITY_SCORE = 8 # The minimum score (inclusive) on each quality sca
 
 # For `app_logic.process_user_request`
 SHOW_DIAG_INFO7 = True
+
+# --- Mindfile splitting ---
+BATCH_TITLE_PREFIX = "Content from data gathering portion "
+ENTRY_SEPARATOR_PREFIX = "# Written no later than "
+
+SOURCE_TAG_OPEN = "<mindfile_source_file:"
+SOURCE_TAG_CLOSE = "</mindfile_source_file:"
+
+DESIGN_LINE = "=================================================="
+
+############################################################
+# --- Sanity checks ---
+############################################################
+
+if not SOURCE_TAG_OPEN.startswith("<"):
+    raise ValueError("MINDFILE_SOURCE_TAG_OPEN must start with '<'")
+if not SOURCE_TAG_CLOSE.startswith("</"):
+    raise ValueError("MINDFILE_SOURCE_TAG_CLOSE must start with '</'")
+
+if TOKEN_SAFETY_MARGIN <= 1.0:
+    raise ValueError("TOKEN_SAFETY_MARGIN must be greater than 1.0")
+
+# TODO: check if MAX_TOKENS_ALLOWED_IN_REQUEST larger than the len of the obligatory parts of "mini-me"s 

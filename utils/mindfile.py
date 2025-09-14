@@ -1,22 +1,23 @@
+import math
 import os
-import shutil
 
 
 from config import (
     DATASET_DIR_NAME_IN_REPO,
+    BATCH_TITLE_PREFIX,
+    ENTRY_SEPARATOR_PREFIX,
+    SOURCE_TAG_CLOSE,
+    SOURCE_TAG_OPEN,
     SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
     STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
     STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
 )
-from utils.files_utils import get_existing_local_files
-from utils.github_tools import (
-    backup_repo,
-    cleanup_temp_directory,
-    clone_repo_to_temp,
-    get_remote_repo_hash,
-    load_repo_hash,
-    save_repo_hash,
-)
+
+from utils.mf_entry import MF_entry
+from utils.tags_utils import build_source_tags, split_string_by_delimiters_with_max_len
+from utils.text_utils import get_splitting_params
+from utils.tokens import get_max_chars_allowed
+from utils.boxes_sorting import pack_into_boxes, verify_packing
 
 
 class Mindfile:
@@ -26,6 +27,44 @@ class Mindfile:
         self.files_dict = files_dict
         self._validate_required_files()
 
+    def get_entries(self) -> list[MF_entry]:
+        """
+        Splits the mindfile content into entries and returns a list of MF_entry objects.
+        """
+        full_content = self.get_full_mindfile_content()
+
+        end_delimiters = [BATCH_TITLE_PREFIX, SOURCE_TAG_OPEN, SOURCE_TAG_CLOSE]
+
+        text_chunks = split_string_by_delimiters_with_max_len(
+            text=full_content,
+            start_delimiter=ENTRY_SEPARATOR_PREFIX,
+            end_delimiters=end_delimiters,
+            max_len=get_max_chars_allowed(),
+        )
+
+        entries = [
+            MF_entry(text=chunk.text, header=chunk.header) for chunk in text_chunks
+        ]
+
+        return entries
+
+    def get_mindfile_data_packed_into_compendiums(self) -> list[str]:
+        """
+        Packs entry texts into compendiums not exceeding the max allowed length,
+        minimizing the number of compendiums.
+        """
+        max_chars = get_max_chars_allowed(consider_obligatory_worker_parts7=True)
+        entries = self.get_entries()
+        compendiums: list[str] = []
+        if entries:
+
+            lengths = get_entry_lengths(entries)
+            boxes = pack_into_boxes(lengths, max_chars)
+            verify_packing(boxes, max_chars)
+            size_to_indices = build_size_to_indices_map(lengths)
+            compendiums = build_compendiums_from_boxes(boxes, entries, size_to_indices)
+        return compendiums
+
     def _validate_required_files(self):
         required_files = [
             SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
@@ -34,7 +73,9 @@ class Mindfile:
         ]
         for req_file in required_files:
             if req_file not in self.files_dict:
-                raise ValueError(f"Required mindfile part '{req_file}' not found in files_dict.")
+                raise ValueError(
+                    f"Required mindfile part '{req_file}' not found in files_dict."
+                )
 
     def _read_file_content(self, filename: str) -> str:
         """
@@ -45,14 +86,19 @@ class Mindfile:
             asset_name = filename.split(":", 1)[1]
             file_path = os.path.join("internal_assets", f"{asset_name}.txt")
             if not os.path.exists(file_path):
-                raise FileNotFoundError(f"Internal asset '{asset_name}' not found at path: {file_path}")
+                raise FileNotFoundError(
+                    f"Internal asset '{asset_name}' not found at path: {file_path}"
+                )
         else:
             # Handle standard mindfile parts
             file_path = self.files_dict.get(filename)
             if not file_path or not os.path.exists(file_path):
-                raise FileNotFoundError(f"Mindfile part '{filename}' not found at path: {file_path}")
+                raise FileNotFoundError(
+                    f"Mindfile part '{filename}' not found at path: {file_path}"
+                )
 
         with open(file_path, "r", encoding="utf-8") as f:
+            print(f"Reading file: {file_path}")
             return f.read().strip()
 
     def get_file_content(self, filename: str) -> str:
@@ -75,7 +121,7 @@ class Mindfile:
             A string containing the combined and formatted context.
         """
         non_system_contents = []
-        
+
         # Determine which files to process
         files_to_process = mindfile_parts
         if files_to_process is None:
@@ -97,7 +143,52 @@ class Mindfile:
 
         return context.strip()
 
-    def _sort_context_contents(self, contents: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    def get_full_mindfile_content(self) -> str:
+        """
+        Reads all mindfile parts, sorts them, and returns them as a single string,
+        with each part wrapped in source tags.
+        """
+        all_contents = [
+            (filename, self._read_file_content(filename))
+            for filename in self.files_dict.keys()
+        ]
+
+        sorted_contents = self._sort_context_contents(all_contents)
+
+        content_parts = []
+        for filename, content in sorted_contents:
+            print(f"Building source tags for: {filename}")
+            open_tag, close_tag = build_source_tags(filename)
+            content_parts.append(f"{open_tag}\n\n{content}\n\n{close_tag}")
+
+        res = "\n\n\n".join(content_parts)
+
+        print(f"Full mindfile content length: {len(res)}")
+        return res
+
+    def get_mindfile_split_into_context_window_chunks(self) -> list[str]:
+        """
+        Splits the full mindfile content into chunks suitable for a context window.
+        """
+        full_content = self.get_full_mindfile_content()
+        if not full_content:
+            return []
+
+        max_chars = get_max_chars_allowed()
+
+        # num_chunks_float = len(full_content) / max_chars
+        # n = math.floor(num_chunks_float) + 1
+        # chunk_size = math.ceil(len(full_content) / n)
+        _, chunk_size = get_splitting_params(full_content, max_chars)
+
+        return [
+            full_content[i : i + chunk_size]
+            for i in range(0, len(full_content), chunk_size)
+        ]
+
+    def _sort_context_contents(
+        self, contents: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
         """
         Sorts context contents to ensure structured facts appear first and memories last.
         Other content is sorted alphabetically by filename.
@@ -105,7 +196,7 @@ class Mindfile:
         structured_facts = []
         structured_memories = []
         other_content = []
-        
+
         facts_filename = STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT
         memories_filename = STRUCTURED_MEMORIES_FILE_WITHOUT_EXT
 
@@ -116,7 +207,7 @@ class Mindfile:
                 structured_memories.append(item)
             else:
                 other_content.append(item)
-                
+
         # Combine with structured facts first, regular content in middle, memories last
         return (
             structured_facts
@@ -125,136 +216,42 @@ class Mindfile:
         )
 
 
-def verify_dataset_path(dataset_path):
-    """Verify the dataset path exists."""
-    if not os.path.exists(dataset_path):
-        print(f"Error: {DATASET_DIR_NAME_IN_REPO} dir not found in {dataset_path}")
-        return False
-    return True
+def get_entry_lengths(entries: list[MF_entry]) -> list[int]:
+    """Return a list of entry text lengths."""
+    lengths: list[int] = []
+    for e in entries:
+        lengths.append(e.get_length())
+    return lengths
 
 
-def move_dataset(source_path, destination_path):
-    """Move dataset to destination, removing old data if it exists."""
-    if os.path.exists(destination_path):
-        shutil.rmtree(destination_path)
-    shutil.move(source_path, destination_path)
+def build_size_to_indices_map(lengths: list[int]) -> dict[int, list[int]]:
+    """Map each size to a list of indices having that size (for duplicates)."""
+    size_to_indices: dict[int, list[int]] = {}
+    for idx, size in enumerate(lengths):
+        if size not in size_to_indices:
+            size_to_indices[size] = []
+        size_to_indices[size].append(idx)
+    return size_to_indices
 
 
-def update_files_and_hashes(temp_path, destination_path, current_hash, repo_url):
-    files = []
-    dataset_path = os.path.join(temp_path, DATASET_DIR_NAME_IN_REPO)
-
-    if not verify_dataset_path(dataset_path):
-        return files
-
-    try:
-        backup_repo(repo_url, dataset_path)
-        move_dataset(dataset_path, destination_path)
-        print(
-            f"\nCleaned up repository. Only {DATASET_DIR_NAME_IN_REPO} directory remains at {destination_path}"
-        )
-
-        save_repo_hash(current_hash)
-        files = get_existing_local_files(destination_path)
-    except Exception as e:
-        print(f"Error updating mindfile: {e}")
-
-    return files
-
-
-def refresh_local_mindfile_data(repo_url, destination_path):
-    files_dict = dict()
-    temp_path = destination_path + "_temp"
-
-    # Check if we've downloaded this before
-    current_hash = get_remote_repo_hash(repo_url)
-    if current_hash is not None:
-        last_hash = load_repo_hash()
-
-        # If hashes match and dataset exists, use existing files
-        if last_hash == current_hash and os.path.exists(destination_path):
-            print("Repository hasn't changed. Using existing files.")
-            files_dict = get_existing_local_files(destination_path)
-        else:
-            print("Repository has changed. Updating the mindfile.")
-            try:
-                sucessfully_cloned7 = clone_repo_to_temp(repo_url, temp_path)
-                if sucessfully_cloned7:
-                    files_dict = update_files_and_hashes(
-                        temp_path, destination_path, current_hash, repo_url
-                    )
-            finally:
-                cleanup_temp_directory(temp_path)
-
-    return files_dict
-
-
-def sort_context_contents(contents, facts_filename, memories_filename):
-    """Sort context contents to ensure structured facts appear first and memories last.
-    
-    Args:
-        contents: List of (filename, content) tuples
-        facts_filename: Filename of structured facts to place first
-        memories_filename: Filename of structured memories to place last
-        
-    Returns:
-        Sorted list of (filename, content) tuples
-    """
-    # Split into three categories
-    structured_facts = []
-    structured_memories = []
-    other_content = []
-    
-    for item in contents:
-        if item[0] == facts_filename:
-            structured_facts.append(item)
-        elif item[0] == memories_filename:
-            structured_memories.append(item)
-        else:
-            other_content.append(item)
-            
-    # Combine with structured facts first, regular content in middle, memories last
-    return (
-        structured_facts
-        + sorted(other_content, key=lambda x: x[0])
-        + structured_memories
-    )
-
-
-def build_source_tags(filename):
-    open_tag = f"<source:{filename}>"
-    close_tag = f"</source:{filename}>"
-    return open_tag, close_tag
-
-
-def split_context_by_importance(context, expendable_tag: str = "dialogs"):
-    """
-    Split the context into three parts: before the expendable part, the expendable part, and after the expendable part.
-
-    Args:
-        context: The full context string
-
-    Returns:
-        Tuple of (before_expendable, expendable, after_expendable) strings
-    """
-    open_tag, close_tag = build_source_tags(expendable_tag)
-
-    # Find the start and end positions of the expendable part
-    start_pos = context.find(open_tag)
-    if start_pos == -1:  # Tag not found
-        return context, "", ""
-
-    end_pos = context.find(close_tag, start_pos) + len(close_tag)
-    if end_pos <= len(close_tag):  # Closing tag not found
-        # Return everything up to the opening tag as non-expendable, and everything after as expendable
-        return context[:start_pos], context[start_pos:], ""
-
-    # Extract the parts
-    before_expendable = context[:start_pos]
-    expendable = context[start_pos:end_pos]
-    after_expendable = context[end_pos:]
-
-    return before_expendable, expendable, after_expendable
+def build_compendiums_from_boxes(
+    boxes: list[list[int]],
+    entries: list[MF_entry],
+    size_to_indices: dict[int, list[int]],
+) -> list[str]:
+    """Construct compendium strings by following packed box size assignments."""
+    compendiums: list[str] = []
+    for box in boxes:
+        parts: list[str] = []
+        for size in box:
+            idx_list = size_to_indices.get(size)
+            if idx_list is None or len(idx_list) == 0:
+                # Should not happen if sizes match; skip defensively
+                continue
+            entry_idx = idx_list.pop()
+            parts.append(entries[entry_idx].text)
+        compendiums.append("".join(parts))
+    return compendiums
 
 
 def get_system_message_and_context(files_dict, save_context_to_file7=False):
@@ -264,12 +261,14 @@ def get_system_message_and_context(files_dict, save_context_to_file7=False):
     try:
         mindfile = Mindfile(files_dict)
         system_message = mindfile.get_system_message()
-        context = mindfile.get_context() # Gets context from all available files
-        
+        context = mindfile.get_context()  # Gets context from all available files
+
         if save_context_to_file7:
             with open("context_for_debug.txt", "w", encoding="utf-8") as f:
-                f.write(f"--- SYSTEM MESSAGE ---\n{system_message}\n\n--- CONTEXT ---\n{context}")
-        
+                f.write(
+                    f"--- SYSTEM MESSAGE ---\n{system_message}\n\n--- CONTEXT ---\n{context}"
+                )
+
         return system_message, context
     except (ValueError, FileNotFoundError) as e:
         # Provide a more informative error message that guides the user.

@@ -4,6 +4,7 @@ __pycache__/
 .idea
 TODO.md
 MINDFILE_FROM_GITHUB/
+MINDFILE_PARTS/
 last_commit_hash.txt
 context_for_debug.txt
 expendable_shrinked.txt
