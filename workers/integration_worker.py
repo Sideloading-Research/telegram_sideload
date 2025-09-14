@@ -4,6 +4,7 @@ from workers.quality_checks_worker import QualityChecksWorker
 from workers.style_worker import StyleWorker
 from workers.data_worker import DataWorker
 from utils.prompt_utils import format_user_info_prompt
+from utils.tags_utils import optionally_remove_answer_sections
 from config import (
     ANSWER_QUALITY_RETRIES_NUM,
     MIN_ANSWER_QUALITY_SCORE,
@@ -15,7 +16,8 @@ class IntegrationWorker(BaseWorker):
         self.mindfile = mindfile
         self.quality_worker = None
         self.style_worker = None
-        self.data_worker = None
+        self.generalist_data_worker = None
+        self.compendium_data_workers: list[DataWorker] = []
         self.user_info_prompt = None
 
     def _initialize_workers(self):
@@ -23,13 +25,71 @@ class IntegrationWorker(BaseWorker):
         self.quality_worker = QualityChecksWorker(mindfile=self.mindfile)
         self.user_info_prompt = format_user_info_prompt()
         self.style_worker = StyleWorker(mindfile=self.mindfile)
-        self.data_worker = DataWorker(mindfile=self.mindfile)
+        self.generalist_data_worker = DataWorker(mindfile=self.mindfile)
 
-    def _get_initial_answer(self, messages_history: list[dict[str, str]], raw_user_message: str) -> tuple[str, str | None]:
-        """Gets an initial answer from the data worker."""
+        compendiums = self.mindfile.get_mindfile_data_packed_into_compendiums()
+        for i, compendium in enumerate(compendiums):
+            starting_chars = compendium[:100].replace("#", "")
+            num_name = f"{i+1}_of_{len(compendiums)}"
+            worker = DataWorker(
+                mindfile=self.mindfile,
+                custom_worker_context=compendium,
+                custom_display_name=f"Compendium worker {num_name}: {starting_chars}",
+            )
+            self.compendium_data_workers.append(worker)
+
+    def poll_data_workers(
+        self, actual_chat_history: list[dict[str, str]], raw_user_message: str
+    ) -> tuple[list[str], str | None]:
+        """
+        Polls all data workers and returns their answers.
+        The generalist worker's answer is always at index 0.
+        """
+        answers = []
+        generalist_answer, provider_report = self.generalist_data_worker.process(
+            actual_chat_history, raw_user_message, self.user_info_prompt
+        )
+        cleaned_generalist_answer = optionally_remove_answer_sections(
+            generalist_answer, remove_cot7=True, remove_internal_dialog7=True
+        )
+        answers.append(cleaned_generalist_answer)
+
+        for worker in self.compendium_data_workers:
+            answer, _ = worker.process(
+                actual_chat_history, raw_user_message, self.user_info_prompt
+            )
+            print(f"--- Answer from {worker.display_name} ---\n{answer}\n---")
+            cleaned_answer = optionally_remove_answer_sections(
+                answer, remove_cot7=True, remove_internal_dialog7=True
+            )
+            answers.append(cleaned_answer)
+
+        return answers, provider_report
+
+    def merge_answers(self, answers: list[str]) -> str:
+        """Merges a list of answers into a single string."""
+        separator = "\n--------------\n"
+        res = ""
+        for answer in answers:
+            res += answer + separator
+        res = res[:-len(separator)]
+        print(f"Merged answers:\n##\n{res}\n##")
+        return res
+
+    def _get_initial_answer(
+        self, messages_history: list[dict[str, str]], raw_user_message: str
+    ) -> tuple[str, str | None]:
+        """
+        Gets an initial answer from the generalist data worker and polls compendium workers.
+        """
         actual_chat_history = messages_history[2:]
-        current_answer, current_provider_report = self.data_worker.process(actual_chat_history, raw_user_message, self.user_info_prompt)
-        return current_answer, current_provider_report
+        
+        answers, provider_report = self.poll_data_workers(
+            actual_chat_history, raw_user_message
+        )
+        current_answer = self.merge_answers(answers)
+
+        return current_answer, provider_report
 
     def _apply_style(self, answer: str) -> str:
         """Applies styling to the answer using the StyleWorker."""
