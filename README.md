@@ -4,24 +4,33 @@ Chat with your AI sideload in Telegram. This bot fetches a "mindfile" from a Git
 
 ## Key Features
 
--   **Modular Worker Architecture**: The bot uses a pipeline of workers (`Data`, `Style`, `QualityChecks`) to process messages, ensuring high-quality, well-styled responses.
--   **Multi-Provider Support**: Seamlessly switch between different AI providers (e.g., Google, OpenAI, Anthropic) on-the-fly.
+-   **Modular Worker Architecture**: The bot uses a pipeline of workers, starting with a `DoormanWorker` to classify requests. An `IntegrationWorker` then polls multiple `DataWorker` instances in parallel, synthesizes their answers, and passes the result through `Style` and `QualityChecks` workers.
+-   **Multi-Provider Support via OpenRouter**: The bot leverages OpenRouter to access a wide range of models from different providers (Google, Anthropic, OpenAI, etc.). It uses a cascading fallback mechanism to ensure high availability.
 -   **Quality Control**: Responses are automatically checked for quality, with a built-in retry mechanism to meet desired standards.
 -   **Dynamic Mindfile**: The bot automatically pulls and updates its mindfile from a specified GitHub repository.
 -   **Pseudo-Infinite Context**: A unique "tip of the tongue" feature allows the use of mindfiles larger than the LLM's context window by randomly omitting parts of it in each interaction.
+
 
 ## Architecture Overview
 
 The bot's architecture is designed around a series of workers that process incoming messages in a pipeline. This ensures that each response is generated, styled, and quality-checked before being sent to the user.
 
 ```
+[User Message]
+     |
+     v
+[DoormanWorker] (Classifies request: deep, shallow, jailbreak)
+     |
+     v
 [IntegrationWorker]
-    |
-    ├──> 1. [DataWorker] -> [AI Provider] (gets initial answer)
-    |
-    ├──> 2. [StyleWorker] -> [AI Provider] (applies styling)
-    |
-    └──> 3. [QualityChecksWorker] -> [AI Provider] (evaluates quality)
+     |
+     ├──> 1. Polls multiple [DataWorkers] in parallel -> [OpenRouter]
+     |         |
+     |         └──> Merges answers via LLM synthesis
+     |
+     ├──> 2. [StyleWorker] -> [OpenRouter] (applies styling)
+     |
+     └──> 3. [QualityChecksWorker] -> [OpenRouter] (evaluates quality)
 ```
 
 ## Prerequisites
@@ -31,7 +40,7 @@ The bot's architecture is designed around a series of workers that process incom
 You will need the following API keys, which should be set as environment variables:
 
 -   **Telegram Bot Token**: Obtain this from [@BotFather](https://t.me/botfather) on Telegram.
--   **Google**: Get your API key from [Google AI Studio](https://aistudio.google.com/apikey).
+-   **OpenRouter**: Get your API key from [OpenRouter](https://openrouter.ai/keys). This is now the default provider.
 
 ### Mindfile Setup
 
@@ -102,18 +111,11 @@ But we don't know if they are safe to use. Use at your own risk.
 TELEGRAM_LLM_BOT_TOKEN='<your_telegram_bot_token>'
 ALLOWED_USER_IDS='<your_user_id>,<another_user_id>' # Comma-separated
 
-# Google
-GOOGLE_API_KEY='<your_google_api_key>'
-GOOGLE_MODEL_NAME='<model_name>'
-
+# OpenRouter (Default Provider)
+OPENROUTER_KEY='<your_openrouter_api_key>'
 ```
 
-The 2.5 generation of Gemini models is the first one where we have noticed human-like quality of responses and a good understanding of the mindfile. Thus, we recommend using 2.5 or later generations.
-
-The list of other models from Google can be found here:
-https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions
-
-Note: While the codebase includes files for other AI providers (like Anthropic and OpenAI in the `ai_providers` directory), the bot is currently optimized and tested for Google's models.
+The bot uses OpenRouter by default to access a variety of models from different providers. The specific models and their fallback order are defined in the `MODELS_TO_ATTEMPT` list in `config.py`. This provides flexibility and resilience by automatically trying different models if one fails.
 
 **Optional:**
 
@@ -168,8 +170,11 @@ The bot's behavior can be further customized through `config.py`.
 -   **Private Chat**: Simply send a message to the bot.
 -   **Group Chat**: Mention the bot, reply to one of its messages, or use a trigger word (if configured).
  
+# Working with large mindfiles
 
-## The "tip of the tongue" pseudo-infinite context
+The app uses 2 strategies to work with the corpus much larger than the context window of any single language model.
+
+## 1. The "tip of the tongue" pseudo-infinite context
 
 The script uses a computationally cheap way to implement a form of infinite context. In each interaction, it randomly omits parts of the mindfile.
 
@@ -180,3 +185,17 @@ The script uses a computationally cheap way to implement a form of infinite cont
 
 **Cons:**
 - At any given time, the sideload only has a partial view of the mindfile. However, experiments show this is not a significant issue.
+
+## 2. Specialized DataWorkers
+
+We use a multi-step process that leverages splitting the corpus into smaller chunks and then synthesizing the answers from each chunk into one answer:
+
+1.  **Mindfile Segmentation**: The entire mindfile is first broken down into smaller, semantically coherent entries based on its internal structure (e.g., date markers).
+
+2.  **Optimal Packing**: These entries are then intelligently packed into larger "compendiums" using a bin packing algorithm. Each compendium is sized to fit just within the LLM's context window, ensuring maximum data density without truncation.
+
+3.  **Chunks Processing**: For "deep dive" questions, each compendium is assigned to a dedicated `DataWorker`.
+
+4.  **Answer Synthesis**: The `IntegrationWorker` collects these partial answers and uses a final LLM call to synthesize them into a single, comprehensive, and coherent response.
+
+This architecture allows the bot to have a complete and structured understanding of the entire mindfile for complex queries.

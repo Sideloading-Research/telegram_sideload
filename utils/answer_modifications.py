@@ -8,6 +8,7 @@ from config import (
     REMOVE_CHAIN_OF_THOUGHT_FROM_ANSWER7,
     REMOVE_INTERNAL_DIALOG_FROM_ANSWER7,
     RESPONSE_FORMAT_REMINDER,
+    ANSWER_MODIFICATION_MAX_TOKENS,
 )
 from utils.tags_utils import optionally_remove_answer_sections
 
@@ -89,7 +90,7 @@ def llm_based_answer_postprocessing(answer):
         {"role": "user", "content": prompt},
     ]
 
-    modified_answer, _ = get_ai_response(messages, "", max_length=500)
+    modified_answer, _, _ = get_ai_response(messages, "", max_length=ANSWER_MODIFICATION_MAX_TOKENS)
     print(f"Modified answer: {modified_answer}")
     print(f"Reduced the length from {len(answer)} to {len(modified_answer)}")
     return modified_answer

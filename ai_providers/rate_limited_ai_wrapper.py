@@ -3,12 +3,13 @@ from functools import wraps
 from collections import deque
 from utils.creds_handler import CREDS
 from utils.constants import c
-from config import RESPONSE_FORMAT_REMINDER, REMINDER_INTERVAL
+from config import DEFAULT_AI_PROVIDER, RESPONSE_FORMAT_REMINDER, REMINDER_INTERVAL
 
 
 from ai_providers.anthropic_ai_provider import ask_anthropic
 from ai_providers.open_ai_provider import ask_open_ai
 from ai_providers.google_ai_provider import ask_google
+from ai_providers.open_router_provider import ask_open_router
 from utils.tokens import is_token_limit_of_request_exceeded
 from utils.message_reducer import reduce_context_in_messages
 
@@ -19,8 +20,8 @@ MAX_RETRIES = 17
 DELAY_CONSTANT_S = 1
 BASE_DELAY_S = 30
 
-PROVIDER_FROM_ENV = CREDS.get("AI_PROVIDER", "google")
-MAX_PRINT_CHARS = 100  # Max characters to print for each message for debugging
+PROVIDER_FROM_ENV = CREDS.get("AI_PROVIDER") or DEFAULT_AI_PROVIDER
+MAX_PRINT_CHARS = 200  # Max characters to print for each message for debugging
 
 # Counter for AI calls to insert reminder
 ai_call_counter = 0
@@ -99,7 +100,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
             messages = reduced_messages
         else:
             print("Failed to reduce context sufficiently")
-            return "Token limit exceeded - Context could not be reduced sufficiently"
+            return "Token limit exceeded - Context could not be reduced sufficiently", "unknown"
     
     print_messages_for_debugging(messages)
     while retries <= MAX_RETRIES:
@@ -110,37 +111,37 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                 provider = user_defined_provider
             print(f"Using provider: {provider}")
 
+            answer, model_name = None, None
             if provider == "openai":
-                answer, success = ask_open_ai(messages, max_length)
+                answer, model_name = ask_open_ai(messages, max_length)
             elif provider == "anthropic":
-                answer, success = ask_anthropic(messages, max_length)
+                answer, model_name = ask_anthropic(messages, max_length)
             elif provider == "google":
-                answer, success = ask_google(messages, max_length)
+                answer, model_name = ask_google(messages, max_length)
+            elif provider == "openrouter":
+                answer, model_name = ask_open_router(messages, max_length)
             else:
                 answer = f"unknown AI provider: {PROVIDER_FROM_ENV}"
-                success = False
+                model_name = "unknown"
 
-            is_valid_answer = success and answer and answer.strip()
+            is_valid_answer = answer and answer.strip()
 
             if is_valid_answer:
                 print(f"AI response: {answer}")
-                return answer
+                return answer, model_name
             else:
-                # This block now handles (success=False) OR (success=True but answer is empty/whitespace)
-                log_msg_failed_attempt = f"Attempt {retries + 1}/{MAX_RETRIES} failed. " # Show upcoming attempt number
+                # This block handles failed calls OR successful calls with empty/error answers
+                log_msg_failed_attempt = f"Attempt {retries + 1}/{MAX_RETRIES} failed. "
 
-                if success and (not answer or not answer.strip()):
-                    log_msg_failed_attempt += f"Provider reported success but answer was empty/whitespace (Provider output: '{answer}'). "
-                elif not success:
-                    log_msg_failed_attempt += f"Provider reported failure (Provider output: '{answer}'). "
-                # No else needed here, as is_valid_answer already covers all conditions.
+                if is_valid_answer is not True:
+                    log_msg_failed_attempt += f"Provider call was unsuccessful or answer was empty/error (Provider output: '{answer}'). "
                 
                 retries += 1
                 if retries > MAX_RETRIES:
                     retry_info = f" (after {MAX_RETRIES} unsuccessful retries)"
-                    final_error_message = f"Failed to get successful response{retry_info}. Last output from provider: '{answer if answer is not None else ''}'"
+                    final_error_message = f"Failed to get valid response{retry_info}. Last output from provider: '{answer if answer is not None else ''}'"
                     print(final_error_message)
-                    return f"{answer if answer is not None else ''}{retry_info}"
+                    return f"{answer if answer is not None else ''}{retry_info}", model_name
                 
                 delay = BASE_DELAY_S + (2 ** retries) * DELAY_CONSTANT_S
                 log_msg_failed_attempt += f"Retrying in {delay:.2f}s..."
@@ -153,7 +154,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                 msg = f"Error while sending to AI provider (after {MAX_RETRIES} retries): {e}"
                 msg += f"If it's the AI provider refusing to answer, try to reset the dialog with the command: {c.reset_dialog_command}"
                 print(msg)
-                return msg
+                return msg, "unknown"
             
             # Exponential backoff: 2^retries * 100ms
             delay = BASE_DELAY_S + (2 ** retries) * DELAY_CONSTANT_S

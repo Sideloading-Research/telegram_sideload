@@ -1,7 +1,8 @@
 from workers.base_worker import BaseWorker
 from utils.mindfile import Mindfile
 from ai_service import get_ai_response
-from config import SYSTEM_MESSAGE_FILE_WITHOUT_EXT
+from config import DATA_WORKER_MAX_TOKENS
+from utils.prompt_utils import build_initial_conversation_history
 
 
 class DataWorker(BaseWorker):
@@ -25,13 +26,8 @@ class DataWorker(BaseWorker):
         if self.custom_worker_context:
             return self.custom_worker_context
 
-        # Filter out the system message from the parts list before building the context
-        context_parts = [
-            part
-            for part in self.mindfile_parts
-            if part != SYSTEM_MESSAGE_FILE_WITHOUT_EXT
-        ]
-        worker_context = self.mindfile.get_context(context_parts)
+        # get_context automatically excludes system_message to prevent duplication
+        worker_context = self.mindfile.get_context(self.mindfile_parts)
         return worker_context
 
     def _process(
@@ -39,41 +35,48 @@ class DataWorker(BaseWorker):
         messages_history: list[dict[str, str]],
         raw_user_message: str,
         user_info_prompt: str | None = None,
-    ) -> tuple[str, str | None]:
+    ) -> tuple[str, str | None, str]:
         """
         Generates a raw AI response based on the conversation history and mindfile context.
 
         Args:
-            messages_history (list[dict[str, str]]): The history of the conversation from the ConversationManager.
+            messages_history (list[dict[str, str]]): Conversational messages (user/assistant exchanges).
+                                                      This should already be extracted (no system message).
             raw_user_message (str): The latest raw message from the user.
 
         Returns:
-            tuple[str, str | None]: A tuple containing the generated answer and a potential provider report.
+            tuple[str, str | None, str]: A tuple containing the generated answer, 
+                                        a potential provider report, and the model name used.
         """
 
-        system_message = self.mindfile.get_system_message()
-        if user_info_prompt:
-            system_message += "\n\n" + user_info_prompt
-
+        # Get system message and context from mindfile according to worker_config
+        # (not from conversation history - workers load their own data)
+        system_message = self.get_worker_system_message(additional_prompt=user_info_prompt)
         worker_context = self._get_worker_context()
 
-        # Start with the foundational elements
-        llm_conversation_history = [
-            {"role": "system", "content": system_message},
-            {"role": "system", "content": f"<context>\n{worker_context}\n</context>"},
-        ]
+        # Build initial conversation history using the standard pattern
+        # (system message + context as assistant message, not as a second system message)
+        llm_conversation_history = build_initial_conversation_history(
+            system_message=system_message,
+            context=worker_context
+        )
 
-        # Append the existing messages from the conversation manager
-        # The history from conversation_manager already contains the formatted user messages and previous assistant responses.
+        # Append the conversational messages (already extracted by caller)
+        # These are pure user/assistant exchanges with no system message
         llm_conversation_history.extend(messages_history)
 
         # The last user message is already in `messages_history`.
         # `get_ai_response` uses `raw_user_message` primarily for provider selection.
 
-        answer, provider_report = get_ai_response(
+        answer, provider_report, model_name = get_ai_response(
             messages_history=llm_conversation_history,
             user_input_for_provider_selection=raw_user_message,
-            max_length=1500,  # A higher max_length for the initial answer generation
+            max_length=DATA_WORKER_MAX_TOKENS,
         )
 
-        return answer, provider_report
+        if not answer or not answer.strip():
+            self.record_diag_event("ai_response_empty", None)
+        if not model_name or model_name in ("N/A", "unknown"):
+            self.record_diag_event("model_invalid", str(model_name))
+
+        return answer, provider_report, model_name

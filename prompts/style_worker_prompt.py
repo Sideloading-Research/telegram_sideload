@@ -1,6 +1,6 @@
 from config import ANSWER_TO_USER_TAG, IM_CHAT_LENGTH_NOTE
 
-def construct_prompt(original_answer: str) -> str:
+def construct_prompt(original_answer: str, chat_history: str) -> str:
     prompt = f"""
             Another (experimental) instance of you wrote an answer.
             Our goal is to rewrite it in such a way, as to make it sound just like you.
@@ -9,6 +9,7 @@ def construct_prompt(original_answer: str) -> str:
 
             <evaluation_points>
             Points to consider (and fix):
+            - Is the answer in the right language?
             - Does the answer sound too much like a typical LLM?
             - Avoid cliche phrases that are typical of LLMs:
             ---- "This is exactly the kind of..."
@@ -44,10 +45,19 @@ def construct_prompt(original_answer: str) -> str:
 
             Evaluate the original answer point by point, and then rewrite it. 
 
+            Please note that the original answer was written by an instance of you who can access the entire huge corpus of memories etc (unlike your instance).
+            But that other instance is usually terrible at writing in your style.
+            Thus, assume that the answer is factually correct, but you need to fix the style, tone, length, formatting, language, etc.
+
             Original Answer to Rewrite:
             <original_answer>
             '{original_answer}'
             </original_answer>
+
+            The recent conversation history for a context:
+            <chat_history>
+            {chat_history}
+            </chat_history>
 
             Don't forget to wrap the user-facing part of the answer with the proper tags:
             <{ANSWER_TO_USER_TAG}>

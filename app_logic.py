@@ -46,6 +46,18 @@ class AppLogic:
         
         return final_ai_answer, provider_report, diag_info
 
+    def _get_answer_from_ai(self, messages_history):
+        """
+        A wrapper for ai_service.get_ai_response.
+        It's not used anymore, because we switched to the worker-based architecture.
+        But let's keep it here for now, for debugging purposes.
+        """
+        answer, report, model_name = get_ai_response(
+            messages_history, self.user_input_for_provider_selection
+        )
+        diag_info = {"model_name": model_name}
+        return answer, report, diag_info
+
     def check_authorization(self, chat_type: str, user_id: int, chat_id: int) -> bool:
         """Checks if the user or chat is authorized based on type and IDs."""
         if chat_type == ChatType.PRIVATE: # Using ChatType constant
@@ -118,8 +130,18 @@ class AppLogic:
             retries = diag_info.get("retries", "N/A")
             sys_compl = diag_info.get("scores", {}).get("sys_message_compliance", "N/A")
             self_desc = diag_info.get("scores", {}).get("self_description_correctness", "N/A")
+            models_used = diag_info.get("models_used", set())
+            request_type = diag_info.get("request_type", "N/A")
             
-            diag_str = f"[quality_retries:{retries}; sys_msg_compl:{sys_compl}; self:{self_desc}]"
+            # Format the set of models into a sorted, comma-separated string
+            if models_used:
+                # Ditch the provider part for brevity, e.g., "google/gemini-2.5-flash" -> "gemini-2.5-flash"
+                short_model_names = [name.split('/')[-1] for name in models_used]
+                models_str = ", ".join(sorted(short_model_names))
+            else:
+                models_str = "N/A"
+            
+            diag_str = f"[type:{request_type}; quality_retries:{retries}; sys_msg_compl:{sys_compl}; self:{self_desc}; models:{models_str}]"
             
             final_answer += f"\n\n{diag_str}"
         

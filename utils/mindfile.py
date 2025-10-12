@@ -116,6 +116,7 @@ class Mindfile:
         Args:
             mindfile_parts: A list of filenames (without extension) to include in the context.
                             If None, all available files except the system message will be used.
+                            Note: system_message is ALWAYS excluded from context, even if explicitly provided.
 
         Returns:
             A string containing the combined and formatted context.
@@ -126,6 +127,10 @@ class Mindfile:
         files_to_process = mindfile_parts
         if files_to_process is None:
             files_to_process = [f for f in self.files_dict.keys()]
+        
+        # Always filter out system_message to prevent duplication
+        # (system_message should be retrieved separately via get_system_message())
+        files_to_process = [f for f in files_to_process if f != SYSTEM_MESSAGE_FILE_WITHOUT_EXT]
 
         for file in files_to_process:
             if file.startswith("internal_assets:") or file in self.files_dict:

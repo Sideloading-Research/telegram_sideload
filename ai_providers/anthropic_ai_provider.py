@@ -1,6 +1,7 @@
 import os
 import anthropic
 from utils.creds_handler import CREDS
+from config import DEFAULT_MAX_TOKENS
 
 
 def build_model_handle():
@@ -35,26 +36,27 @@ def extract_and_remove_system_message(messages):
     return system_message, user_messages
 
 
-def ask_anthropic(messages, max_length):
-    system_message, clean_messages = extract_and_remove_system_message(messages)
+def ask_anthropic(messages, max_tokens=DEFAULT_MAX_TOKENS):
+    """
+    Sends a request to the Anthropic API.
+    """
+    model_name = CREDS.get("ANTHROPIC_MODEL")
+    api_key = CREDS.get("ANTHROPIC_API_KEY")
+    client = anthropic.Anthropic(api_key=api_key)
 
-    message = CLIENT.messages.create(
-        model=MODEL,
-        system=system_message,
-        max_tokens=max_length,
-        messages=clean_messages
-    )
-    # answer = message.content
-    # print("answer", answer)
+    system_message = ""
+    if messages and messages[0]["role"] == "system":
+        system_message = messages[0]["content"]
+        messages = messages[1:]
 
-    # The content is a list of TextBlock objects
-    text_blocks = message.content
-
-    # Extract text from the first TextBlock
-    if text_blocks and hasattr(text_blocks[0], 'text'):
-        answer = text_blocks[0].text
-    else:
-        answer = "<non textual answer, not supported yet>"  # or some default value
-
-    success7 = True # TODO: check if the answer is successful
-    return answer, success7
+    try:
+        response = client.messages.create(
+            model=model_name,
+            max_tokens=max_tokens,
+            system=system_message,
+            messages=messages,
+        )
+        return response.content[0].text, model_name
+    except Exception as e:
+        print(f"An error occurred in ask_anthropic: {e}")
+        return f"Error in ask_anthropic: {e}", model_name

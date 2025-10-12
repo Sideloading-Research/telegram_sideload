@@ -1,5 +1,6 @@
 import re
 
+from config import QUALITY_CHECKS_WORKER_MAX_TOKENS
 from prompts.quality_checks_worker_prompt import construct_prompt
 from workers.base_worker import BaseWorker
 from utils.mindfile import Mindfile
@@ -13,7 +14,7 @@ class QualityChecksWorker(BaseWorker):
 
 
 
-    def _process(self, conversation_history: list[dict[str, str]], original_answer: str, user_info_prompt: str | None = None) -> dict[str, int | None]:
+    def _process(self, conversation_history: list[dict[str, str]], original_answer: str, user_info_prompt: str | None = None) -> tuple[dict[str, int | None], str]:
         if not original_answer or not original_answer.strip():
             print("QualityChecksWorker: Received empty answer to check. Returning None.")
             return {
@@ -21,15 +22,12 @@ class QualityChecksWorker(BaseWorker):
                 "self_description_correctness": None,
                 #"factual_correctness": None, # disabled for now
                 #"style_similarity": None, # disabled for now
-            }
+            }, "N/A"
 
-        # Build the context specific to this worker
-        worker_context = self.mindfile.get_context(self.mindfile_parts)
-        system_message = self.mindfile.get_system_message()
-        
-        if user_info_prompt:
-            system_message += "\n\n" + user_info_prompt
-
+        # Get system message and context from mindfile according to worker_config
+        # (not from conversation history - workers load their own data)
+        system_message = self.get_worker_system_message(additional_prompt=user_info_prompt)
+        worker_context = self.get_worker_context()
         quality_prompt = construct_prompt(conversation_history, original_answer)
 
         llm_conversation_history = build_initial_conversation_history(
@@ -39,15 +37,20 @@ class QualityChecksWorker(BaseWorker):
         )
 
         # We don't need the provider report for this internal call.
-        raw_quality_assessment, _ = get_ai_response(
+        raw_quality_assessment, _, model_name = get_ai_response(
             messages_history=llm_conversation_history,
             user_input_for_provider_selection=quality_prompt, # The prompt itself is used for provider selection logic
-            max_length=1000 
+            max_length=QUALITY_CHECKS_WORKER_MAX_TOKENS 
         )
+
+        if not raw_quality_assessment or not raw_quality_assessment.strip():
+            self.record_diag_event("quality_assessment_empty", None)
+        if not model_name or model_name in ("N/A", "unknown"):
+            self.record_diag_event("quality_model_invalid", str(model_name))
 
         print(f"QualityChecksWorker: Raw quality assessment: {raw_quality_assessment}")
 
-        return self._parse_scores(raw_quality_assessment)
+        return self._parse_scores(raw_quality_assessment), model_name
 
     def _parse_scores(self, assessment_text: str) -> dict[str, int | None]:
         scores = {

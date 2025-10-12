@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI  # pip install openai
 from utils.creds_handler import CREDS
+from config import DEFAULT_MAX_TOKENS
 
 MODEL_CLASSES = ["o1", "4o"]
 
@@ -55,25 +56,14 @@ def sys_msg_conditional_removal(messages):
     return modified_messages
 
 
-def ask_open_ai(messages, max_length):
-    modified_messages = sys_msg_conditional_removal(messages)
+def ask_open_ai(messages, max_tokens=DEFAULT_MAX_TOKENS):
+    client = build_client()
+    model = CREDS.get("OPENAI_MODEL")
     try:
-        model_class = identify_model_class(MODEL)
-        if model_class in MODEL_SPECIFIC_LIMITS:
-            max_length = MODEL_SPECIFIC_LIMITS[model_class]
-
-        # Note: for some models it's max_tokens, not max_completion_tokens
-        completion = CLIENT.chat.completions.create(
-            model=MODEL,
-            messages=modified_messages,
-            max_completion_tokens=max_length,
+        completion = client.chat.completions.create(
+            model=model, messages=messages, max_tokens=max_tokens
         )
-        answer = completion.choices[0].message.content
-        print(f"OpenAI response: {answer}")
+        return completion.choices[0].message.content, model
     except Exception as e:
-        msg = f"Error while sending to OpenAI: {e}"
-        print(msg)
-        answer = msg
-
-    success7 = True # TODO: check if the answer is successful
-    return answer, success7
+        print(f"An error occurred in ask_open_ai: {e}")
+        return f"Error in ask_open_ai: {e}", model
