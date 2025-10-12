@@ -3,9 +3,9 @@ import os
 
 
 keys_dict = {
-    "AI_PROVIDER": "google",  # Optional, defaults to "google"
-    "GOOGLE_API_KEY": None,  # Required
-    "GOOGLE_MODEL_NAME": None,  # Required
+    "AI_PROVIDER": "",  # Optional, falls back to default in config.py
+    "GOOGLE_API_KEY": "dummy", # Required if AI_PROVIDER is "google"
+    "GOOGLE_MODEL_NAME": "dummy", # Required if AI_PROVIDER is "google"
     "ALLOWED_USER_IDS": None,  # Required
     "ALLOWED_GROUP_IDS": None,  # Required
     "TELEGRAM_LLM_BOT_TOKEN": None,  # Required
@@ -13,6 +13,7 @@ keys_dict = {
     "ANTHROPIC_API_KEY": "dummy",  # Required if AI_PROVIDER is "anthropic"
     "OPENAI_MODEL": "dummy",  # Required if AI_PROVIDER is "openai"
     "OPENAI_API_KEY": "dummy",  # Required if AI_PROVIDER is "openai"
+    "OPENROUTER_KEY": None, # Required if AI_PROVIDER is "openrouter"
     "USERS_INFO": "", # Optional, information about users
     "TRIGGER_WORDS": "", # Optional, trigger words for the bot
 }

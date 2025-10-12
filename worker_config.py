@@ -23,6 +23,10 @@ WORKERS_CONFIG = {
         ],
         "type": "meta",
     },
+    "doorman_worker": {
+        "mindfile_parts": ["system_message", "structured_self_facts"],
+        "type": "meta",
+    },
     "data_worker": {
         "mindfile_parts": [
             "system_message",
@@ -33,8 +37,8 @@ WORKERS_CONFIG = {
             "interviews_etc",
             "writings_non_fiction",
             "dreams",
-            "writings_fiction"
+            "writings_fiction",
         ],
         "type": "data",
-    }
+    },
 }

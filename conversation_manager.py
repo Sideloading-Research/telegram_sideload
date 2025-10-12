@@ -6,8 +6,13 @@ from bot_config import (
 from utils.prompt_utils import format_user_info_prompt, build_initial_conversation_history
 
 def _build_initial_assistant_messages(mind_manager: MindDataManager):
-    """Returns the initial messages that should be present in every conversation."""
-    system_message, context = mind_manager.get_current_data()
+    """
+    Returns the initial messages that should be present in every conversation.
+    
+    Note: This only stores the system message, NOT the full mindfile context.
+    Each worker will load its own context as needed based on its specific requirements.
+    """
+    system_message, _ = mind_manager.get_current_data()  # Ignore context, workers will load it
 
     user_info_prompt_addition = format_user_info_prompt()
     # print(f"User info prompt addition: {user_info_prompt_addition}") # Optional debug
@@ -21,7 +26,8 @@ def _build_initial_assistant_messages(mind_manager: MindDataManager):
     # Debug print
     # print(f"Full system message being used:\n{full_system_message}")
 
-    return build_initial_conversation_history(system_message=full_system_message, context=context)
+    # Don't pass context - workers will load what they need
+    return build_initial_conversation_history(system_message=full_system_message, context=None)
 
 class Conversation:
     def __init__(self, mind_manager: MindDataManager):

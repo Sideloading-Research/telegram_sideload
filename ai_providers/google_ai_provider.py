@@ -9,6 +9,7 @@ from google.genai import errors
 import io
 import json
 from utils.creds_handler import CREDS
+from config import DEFAULT_MAX_TOKENS
 
 
 # Dictionary to cache clients based on api_key
@@ -142,8 +143,18 @@ def get_response(
     return res, success7
 
 
-def ask_google(messages, max_length):
-    res, success7 = get_response(
-        messages, None, MODEL_NAME, api_key=API_KEY, mock7=False
-    )
-    return res, success7
+def ask_google(messages, max_tokens=DEFAULT_MAX_TOKENS):
+    model_name = CREDS.get("GOOGLE_MODEL_NAME")
+    try:
+        client = get_client()
+        model_handle = client.get_model(f"models/{model_name}")
+
+        response = get_response(
+            messages, None, model_handle, api_key=API_KEY, mock7=False
+        )
+        
+        return response.text, model_name
+
+    except Exception as e:
+        print(f"An error occurred in ask_google: {e}")
+        return f"An error occurred in ask_google: {e}", model_name

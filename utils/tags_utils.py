@@ -429,34 +429,57 @@ def optionally_remove_answer_sections(
     Remove specified sections from the answer (chain of thought and/or internal dialog).
     Returns the modified answer with cleaned whitespace.
     """
+    #print("\n--- ENTERING optionally_remove_answer_sections ---")
+    #print(f"REMOVE COT: {remove_cot7}, REMOVE DIALOG: {remove_internal_dialog7}")
+    #print("--- ORIGINAL ANSWER ---")
+    #print(answer)
+
     if not isinstance(answer, str):
+        print(f"## The answer is not a string: {str(answer)}")
         return str(answer)
 
+    original_answer = answer
+
     try:
+        processed_answer = answer
         if remove_cot7:
-            answer = remove_tag_section(answer, CHAIN_OF_THOUGHT_TAG)
+            processed_answer = remove_tag_section(processed_answer, CHAIN_OF_THOUGHT_TAG)
+            #print("--- AFTER COT REMOVAL ---")
+            #print(processed_answer)
 
         if remove_internal_dialog7:
-            answer = remove_tag_section(answer, INTERNAL_DIALOG_TAG)
+            processed_answer = remove_tag_section(processed_answer, INTERNAL_DIALOG_TAG)
+            #print("--- AFTER DIALOG REMOVAL ---")
+            #print(processed_answer)
 
-        answer = clean_whitespace(answer)
+        processed_answer = clean_whitespace(processed_answer)
+        #print("--- AFTER WHITESPACE CLEANING ---")
+        #print(processed_answer)
 
         # Only keep content from the "answer to the user" section if both CoT and internal dialog are removed
         if remove_cot7 and remove_internal_dialog7:
             # Try to extract just the answer part if it exists
-            extracted = extract_content_from_tag(answer, ANSWER_TO_USER_TAG)
-
-            # print(f"Extracted: {extracted}")
+            extracted = extract_content_from_tag(processed_answer, ANSWER_TO_USER_TAG)
+            #print(f"--- EXTRACTED CONTENT ---: {extracted}")
 
             if extracted:
-                return extracted
+                processed_answer = extracted
             else:
                 # Special case: If the tag exists but has no closing tag, just remove the opening tag
-                answer = answer.replace(f"<{ANSWER_TO_USER_TAG}>", "")
+                processed_answer = processed_answer.replace(f"<{ANSWER_TO_USER_TAG}>", "")
 
-        return answer
+        #print("--- FINAL PROCESSED ANSWER ---")
+        #print(processed_answer)
+
+        if len(processed_answer) >= len(original_answer):
+            if remove_cot7 or remove_internal_dialog7:
+                print("## WARNING: optionally_remove_answer_sections did not shorten the answer.")
+
+        #print("--- EXITING optionally_remove_answer_sections ---\n")
+
+        return processed_answer
 
     except Exception as e:
-        msg = f"Error processing answer: {str(e)}"
+        msg = f"## Error processing answer: {str(e)}"
         print(msg)
-        return msg + "\n" + str(answer)
+        return msg + "\n" + str(original_answer)
