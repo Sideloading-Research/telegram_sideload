@@ -60,8 +60,12 @@ def construct_prompt(
             self_description_correctness: [numerical_score]
             </answer_template>
             
-            Note: your answer will be parsed automatically, so please adhear to the answer template.
-            
+            <important notes>
+            This is of the critical importance:
+            - Our job here is meta. We don't write an answer to a participant of a chat. Instead, we evaluate the answer supplied to us by another instance. We are the quality control team.
+            - Your answer will be parsed automatically, so please adhear to the answer template.
+            </important notes>
+
             Your answer:
         """
     return prompt

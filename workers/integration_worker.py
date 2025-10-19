@@ -13,10 +13,15 @@ from config import (
     JAILBREAK_ALARM_TEXT,
     JAILBREAK_TRUNCATE_LEN,
     MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN,
+    STYLE_WORKER_ITERATIONS_NUM,
+    REWRITE_LONG_ANSWERS7,
+    REWRITE_THRESHOLD_CHARS,
 )
 from ai_service import get_ai_response
 from utils.prompt_utils import build_initial_conversation_history, extract_conversational_messages
 from prompts.integration_worker_prompt import construct_prompt as construct_integration_prompt
+from utils.diag_utils import build_diag_info
+
 
 class IntegrationWorker(BaseWorker):
     def __init__(self, mindfile: Mindfile):
@@ -207,29 +212,45 @@ class IntegrationWorker(BaseWorker):
 
         return current_answer, provider_report, models_used
 
-    def _apply_style(self, answer: str, messages_history: list[dict]) -> tuple[str, str]:
+    def _apply_style(self, answer: str, messages_history: list[dict]) -> tuple[str, str, int]:
         """Applies styling to the answer using the StyleWorker."""
         if not self.style_worker or not answer:
             self.record_diag_event("style_skipped", None)
-            return answer, "N/A"
+            return answer, "N/A", 0
         
         try:
+            styled_answer = answer
+            model_name = "N/A"
+
             user_facing_answer = optionally_remove_answer_sections(
-                answer, remove_cot7=True, remove_internal_dialog7=True
+                styled_answer, remove_cot7=True, remove_internal_dialog7=True
             )
-            
-            styled_answer, model_name = self.style_worker.process(user_facing_answer, self.user_info_prompt, messages_history)
-            if not model_name or model_name in ("N/A", "unknown"):
-                self.record_diag_event("style_model_invalid", str(model_name))
-            print(f"Original answer:\n---\n{user_facing_answer}\n---")
-            print("########################################################")
-            print(f"Styled answer:\n---\n{styled_answer}\n---")
-            print("########################################################")
-            return styled_answer, model_name
+
+            should_rewrite_iteratively = REWRITE_LONG_ANSWERS7 and len(user_facing_answer) > REWRITE_THRESHOLD_CHARS
+            iterations = STYLE_WORKER_ITERATIONS_NUM if should_rewrite_iteratively else 1
+
+            for i in range(iterations):
+                print(f"--- Style Worker Iteration {i + 1}/{iterations} ---")
+                
+                user_facing_answer_for_style = optionally_remove_answer_sections(
+                    styled_answer, remove_cot7=True, remove_internal_dialog7=True
+                )
+                
+                styled_answer, model_name = self.style_worker.process(user_facing_answer_for_style, self.user_info_prompt, messages_history)
+                
+                if not model_name or model_name in ("N/A", "unknown"):
+                    self.record_diag_event("style_model_invalid", f"iteration_{i+1}:{model_name}")
+
+                print(f"Input for this iteration:\n---\n{user_facing_answer_for_style}\n---")
+                print("########################################################")
+                print(f"Output of this iteration:\n---\n{styled_answer}\n---")
+                print("########################################################")
+
+            return styled_answer, model_name, iterations
         except Exception as e:
             print(f"An error occurred during style worker processing: {e}")
             self.record_diag_event("style_exception", str(e))
-            return answer, "N/A"
+            return answer, "N/A", 0
 
     def _evaluate_quality(self, messages_history: list[dict[str, str]], answer: str) -> tuple[dict | None, str]:
         """Evaluates the quality of the answer using the QualityChecksWorker."""
@@ -303,6 +324,7 @@ class IntegrationWorker(BaseWorker):
         best_answer_data = {"answer": None, "score_sum": -1, "scores": {}, "models_used": set()}
         provider_report = None
         retries_taken = 0
+        style_iterations_taken = 0
         
         retries = ANSWER_QUALITY_RETRIES_NUM
 
@@ -317,7 +339,7 @@ class IntegrationWorker(BaseWorker):
             if provider_report is None:
                 provider_report = current_provider_report
 
-            styled_answer, style_model = self._apply_style(current_answer, sanitized_messages_history)
+            styled_answer, style_model, style_iterations_taken = self._apply_style(current_answer, sanitized_messages_history)
             models_used_this_attempt.add(style_model)
 
             quality_scores, quality_model = self._evaluate_quality(sanitized_messages_history, styled_answer)
@@ -365,12 +387,12 @@ class IntegrationWorker(BaseWorker):
         except Exception:
             pass
 
-        diag_info = {
-            "retries": retries_taken,
-            "scores": best_answer_data["scores"],
-            "models_used": best_answer_data["models_used"],
-            "request_type": request_type,
-            # "diagnostics": {"events": aggregated_events},
-        }
+        diag_info = build_diag_info(
+            retries_taken=retries_taken,
+            scores=best_answer_data["scores"],
+            models_used=best_answer_data["models_used"],
+            request_type=request_type,
+            style_iterations=style_iterations_taken,
+        )
         
         return final_ai_answer, provider_report, diag_info

@@ -182,6 +182,17 @@ MIN_ANSWER_QUALITY_SCORE = 8 # The minimum score (inclusive) on each quality sca
 # For `app_logic.process_user_request`
 SHOW_DIAG_INFO7 = True
 
+# --- Style worker settings ---
+
+# If set to True, the style worker will iteratively rewrite the answer.
+REWRITE_LONG_ANSWERS7 = True
+
+REWRITE_THRESHOLD_CHARS = int(MAX_TELEGRAM_MESSAGE_LEN / 3)
+
+# If set to more than 1, the style worker will process the input iteratively,
+# with the next iteration using the previous iteration's output as input.
+STYLE_WORKER_ITERATIONS_NUM = 2
+
 # --- Token Limits ---
 DEFAULT_MAX_TOKENS = 2048
 AI_SERVICE_MAX_TOKENS = 500
