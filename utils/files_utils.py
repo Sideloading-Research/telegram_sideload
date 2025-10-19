@@ -7,10 +7,14 @@ def print_file_dict(files_dict, directory):
         print(f"{name}: {path}")
 
 def build_files_dict(directory):
-    """Helper function to build dictionary of files with names as keys and full paths as values."""
+    """Helper function to build dictionary of files with names as keys and full paths as values.
+    
+    Only txt files are included.
+    """
     return {
         os.path.splitext(f)[0]: os.path.join(directory, f)
         for f in os.listdir(directory)
+        if f.endswith(".txt")
     }
 
 

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from worker_config import WORKERS_CONFIG
+from config import MAX_TELEGRAM_MESSAGE_LEN
 
 class BaseWorker(ABC):
     def __init__(self, worker_name: str, custom_display_name: str | None = None):
@@ -63,6 +64,11 @@ class BaseWorker(ABC):
         print(f"\n{log_prefix}--- Running {self.display_name} ---")
         try:
             result = self._process(*args, **kwargs)
+            if isinstance(result, str) and len(result) > MAX_TELEGRAM_MESSAGE_LEN:
+                print(
+                    f"# Worker {self.display_name} result is too long ({len(result)} chars), truncating to {MAX_TELEGRAM_MESSAGE_LEN} chars."
+                )
+                result = result[-MAX_TELEGRAM_MESSAGE_LEN:]
             return result
         finally:
             print(f"{log_prefix}--- {self.display_name} Finished ---\n")

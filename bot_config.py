@@ -44,6 +44,7 @@ if raw_users_info:
 PROVIDER_INDICATORS = {  # the indicators are case-insensitive
     "openai": ["o:", "о:"],  # Russian and Latin
     "anthropic": ["a:", "а:", "c:", "с:"],  # Russian and Latin
+    "ollama": ["l:"],
 }
 # PROVIDER_FROM_ENV is imported where ask_gpt_multi_message is called, usually ai_service or directly.
 # We'll assume ai_service will handle the default provider logic.

@@ -1,6 +1,6 @@
 import os
 
-from config import DATASET_LOCAL_DIR_PATH, REPO_URL
+from config import DATASET_LOCAL_REPO_DIR_PATH, REPO_URL
 from utils.dataset_files import refresh_local_mindfile_data
 from utils.mf_entry import MF_entry
 from utils.mindfile import Mindfile
@@ -20,7 +20,7 @@ def save_to_file(text, index: int, output_dir: str):
 
 
 def main():
-    files_dict = refresh_local_mindfile_data(REPO_URL, DATASET_LOCAL_DIR_PATH)
+    files_dict = refresh_local_mindfile_data(REPO_URL, DATASET_LOCAL_REPO_DIR_PATH)
     if not files_dict:
         print("No files found. Exiting.")
         return

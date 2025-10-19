@@ -140,6 +140,10 @@ python3 main.py
 
 For long-running sessions, it's recommended to use a terminal multiplexer like `tmux`.
 
+### Local Sideload Setup
+
+For instructions on advanced local setups, such as using a local mindfile or a local AI provider, see the [local run guide](docs/local_run.md).
+
 
 
 ## 6. Add the bot to your group

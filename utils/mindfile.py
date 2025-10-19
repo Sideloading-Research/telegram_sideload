@@ -11,11 +11,15 @@ from config import (
     SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
     STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
     STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
+    ULTRA_SMALL_CONTEXT_WINDOW_MODE7,
+    MAX_TOKENS_ALLOWED_IN_REQUEST,
+    CHARS_PER_TOKEN,
+    WORKERS_OBLIGATORY_PARTS,
 )
 
 from utils.mf_entry import MF_entry
 from utils.tags_utils import build_source_tags, split_string_by_delimiters_with_max_len
-from utils.text_utils import get_splitting_params
+from utils.text_utils import get_splitting_params, truncate_text
 from utils.tokens import get_max_chars_allowed
 from utils.boxes_sorting import pack_into_boxes, verify_packing
 
@@ -27,19 +31,51 @@ class Mindfile:
         self.files_dict = files_dict
         self._validate_required_files()
 
-    def get_entries(self) -> list[MF_entry]:
+    def _get_processed_obligatory_parts(self) -> dict[str, str]:
+        contents = {
+            filename: self._read_file_content(filename)
+            for filename in WORKERS_OBLIGATORY_PARTS
+            if filename in self.files_dict
+        }
+
+        if ULTRA_SMALL_CONTEXT_WINDOW_MODE7:
+            system_message = contents.get(SYSTEM_MESSAGE_FILE_WITHOUT_EXT, "")
+            facts_content = contents.get(STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT, "")
+
+            max_len_for_combo = (MAX_TOKENS_ALLOWED_IN_REQUEST * CHARS_PER_TOKEN) / 2
+            max_len_for_facts = max(0, int(max_len_for_combo - len(system_message)))
+
+            if len(facts_content) > max_len_for_facts:
+                print(
+                    f"Original {STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT} length: {len(facts_content)}"
+                )
+                print(
+                    f"Truncating {STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT} to {max_len_for_facts} chars."
+                )
+                truncated_content = truncate_text(facts_content, max_len_for_facts)
+                contents[STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT] = truncated_content
+
+        return contents
+
+    def get_entries(self, max_len: int | None = None) -> list[MF_entry]:
         """
         Splits the mindfile content into entries and returns a list of MF_entry objects.
+        
+        Args:
+            max_len: Maximum length for each entry. If None, uses get_max_chars_allowed().
         """
         full_content = self.get_full_mindfile_content()
 
         end_delimiters = [BATCH_TITLE_PREFIX, SOURCE_TAG_OPEN, SOURCE_TAG_CLOSE]
+        
+        if max_len is None:
+            max_len = get_max_chars_allowed()
 
         text_chunks = split_string_by_delimiters_with_max_len(
             text=full_content,
             start_delimiter=ENTRY_SEPARATOR_PREFIX,
             end_delimiters=end_delimiters,
-            max_len=get_max_chars_allowed(),
+            max_len=max_len,
         )
 
         entries = [
@@ -53,8 +89,12 @@ class Mindfile:
         Packs entry texts into compendiums not exceeding the max allowed length,
         minimizing the number of compendiums.
         """
-        max_chars = get_max_chars_allowed(consider_obligatory_worker_parts7=True)
-        entries = self.get_entries()
+        processed_obligatory_parts = self._get_processed_obligatory_parts()
+        max_chars = get_max_chars_allowed(
+            consider_obligatory_worker_parts7=True,
+            files_content_override=processed_obligatory_parts,
+        )
+        entries = self.get_entries(max_len=max_chars)
         compendiums: list[str] = []
         if entries:
 
@@ -103,11 +143,16 @@ class Mindfile:
 
     def get_file_content(self, filename: str) -> str:
         """Reads and returns the content of a specific file."""
+        if filename in WORKERS_OBLIGATORY_PARTS:
+            # Return the processed version, which may be truncated
+            return self._get_processed_obligatory_parts().get(filename, "")
         return self._read_file_content(filename)
 
     def get_system_message(self) -> str:
         """Extracts and returns the system message."""
-        return self._read_file_content(SYSTEM_MESSAGE_FILE_WITHOUT_EXT)
+        return self._get_processed_obligatory_parts().get(
+            SYSTEM_MESSAGE_FILE_WITHOUT_EXT, ""
+        )
 
     def get_context(self, mindfile_parts: list[str] | None = None) -> str:
         """
@@ -132,11 +177,16 @@ class Mindfile:
         # (system_message should be retrieved separately via get_system_message())
         files_to_process = [f for f in files_to_process if f != SYSTEM_MESSAGE_FILE_WITHOUT_EXT]
 
+        processed_obligatory_parts = self._get_processed_obligatory_parts()
+
         for file in files_to_process:
-            if file.startswith("internal_assets:") or file in self.files_dict:
+            if file in processed_obligatory_parts:
+                content = processed_obligatory_parts[file]
+                non_system_contents.append((file, content))
+            elif file.startswith("internal_assets:") or file in self.files_dict:
                 content = self._read_file_content(file)
                 non_system_contents.append((file, content))
-
+                    
         # Sort contents to ensure structured facts appear first and memories last (if they exist in the list)
         sorted_contents = self._sort_context_contents(non_system_contents)
 
@@ -153,10 +203,15 @@ class Mindfile:
         Reads all mindfile parts, sorts them, and returns them as a single string,
         with each part wrapped in source tags.
         """
-        all_contents = [
-            (filename, self._read_file_content(filename))
-            for filename in self.files_dict.keys()
-        ]
+        processed_obligatory_parts = self._get_processed_obligatory_parts()
+        all_contents = []
+
+        # Add all files from files_dict, using the processed version for obligatory parts
+        for filename in self.files_dict.keys():
+            if filename in processed_obligatory_parts:
+                all_contents.append((filename, processed_obligatory_parts[filename]))
+            else:
+                all_contents.append((filename, self._read_file_content(filename)))
 
         sorted_contents = self._sort_context_contents(all_contents)
 

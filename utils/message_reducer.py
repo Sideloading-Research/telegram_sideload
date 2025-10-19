@@ -1,7 +1,7 @@
 import copy
 from utils.text_shrinkage_utils.controller import shrink_any_text
 from utils.tokens import count_tokens, is_token_limit_of_request_exceeded, MAX_TOKENS_ALLOWED_IN_REQUEST
-from config import TOKEN_SAFETY_MARGIN, PROTECTED_MINDFILE_PARTS, SOURCE_TAG_OPEN, SOURCE_TAG_CLOSE
+from config import TOKEN_SAFETY_MARGIN, PROTECTED_MINDFILE_PARTS, SOURCE_TAG_OPEN, SOURCE_TAG_CLOSE, CHARS_PER_TOKEN
 import re
 
 
@@ -80,6 +80,36 @@ def try_aggressive_reduction(messages, context_idx, before_expendable, expendabl
     success = not is_token_limit_of_request_exceeded(messages)
     
     return messages, success, new_context
+
+
+def truncate_context_if_needed(reduced_messages, context_message_idx):
+    """Truncate the context if it's still too large after reduction."""
+    success = not is_token_limit_of_request_exceeded(reduced_messages)
+    if success:
+        return reduced_messages, True
+
+    print("# Context still too large after iterative reduction. Truncating.")
+    total_tokens = calculate_message_tokens(reduced_messages)
+    target_tokens = calculate_reduction_target()
+
+    context_content = reduced_messages[context_message_idx]["content"]
+    context_tokens = count_tokens(context_content)
+
+    other_tokens = total_tokens - context_tokens
+    max_context_tokens = target_tokens - other_tokens
+    
+    # Subtract a small buffer to be safe
+    max_context_tokens = max(0, max_context_tokens - 5)
+
+    max_len = max(0, int((max_context_tokens - 1) * CHARS_PER_TOKEN))
+    
+    if max_len < len(context_content):
+        new_context = context_content[:max_len]
+        reduced_messages[context_message_idx]["content"] = new_context
+        success = not is_token_limit_of_request_exceeded(reduced_messages)
+        print(f"# Truncation success: {success}")
+
+    return reduced_messages, success
 
 
 def reduce_context_in_messages(messages):
@@ -203,7 +233,7 @@ def reduce_context_in_messages(messages):
         new_context = _rebuild_context()
         reduced_messages[context_message_idx]["content"] = new_context
 
-    success = not is_token_limit_of_request_exceeded(reduced_messages)
+    reduced_messages, success = truncate_context_if_needed(reduced_messages, context_message_idx)
 
     # Logging
     final_context = reduced_messages[context_message_idx]["content"]

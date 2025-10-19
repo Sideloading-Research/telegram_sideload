@@ -49,14 +49,19 @@ def construct_prompt(
             "{conversation_history}"
 
             Original Answer to Evaluate:
-            '{original_answer}'            
+            '{original_answer}'  
 
-            Please be very concise.
-            
-            Please write a short verdict (free form) on the quality of the answer.
+            You can use the following answer template:
 
-            And then provide your ratings in the following format (this will be parsed automatically):
+            <answer_template>
+            [A short verdict (free form) on the quality of the answer. Please be very concise here.]
+            Ratings:
             sys_message_compliance: [numerical_score]
             self_description_correctness: [numerical_score]
+            </answer_template>
+            
+            Note: your answer will be parsed automatically, so please adhear to the answer template.
+            
+            Your answer:
         """
     return prompt

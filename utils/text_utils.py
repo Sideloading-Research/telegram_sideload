@@ -319,3 +319,27 @@ def verify_chunk_lengths(chunks, max_len):
             print(msg)
             raise ValueError(msg)
         ind += 1
+
+
+def truncate_text(text: str, max_len: int) -> str:
+    """
+    Truncates text to a maximum length, trying to break at a newline.
+    """
+    if len(text) <= max_len:
+        return text
+
+    truncated_text = text[:max_len]
+    last_newline = truncated_text.rfind('\n')
+
+    if last_newline != -1:
+        res = truncated_text[:last_newline]
+    else:
+        res = truncated_text
+
+    # print the last 5 lines
+    lines = res.split('\n')
+    if len(lines) > 5:
+       for line in lines[-5:]:
+           print(line)
+
+    return res
