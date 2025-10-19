@@ -69,6 +69,10 @@ def print_messages_for_debugging(messages, max_chars=MAX_PRINT_CHARS):
         role = message.get("role", "unknown")
         content = message.get("content", "")
         truncated_content = content[:max_chars] + "..." if len(content) > max_chars else content
+
+        # replacing "#" for a better formatting in the console output
+        truncated_content = truncated_content.replace("#", "")
+        
         print(f"Message {i+1} [Role: {role}]:\n{truncated_content}")
     print("---------------------------------")
 

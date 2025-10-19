@@ -8,6 +8,7 @@ from config import (
 )
 from telegram.constants import ChatType # ADDED - for explicit comparison
 from workers.integration_worker import IntegrationWorker
+from utils.diag_utils import format_diag_info
 
 
 def _get_effective_username(user_id: int, username: str = None, first_name: str = None, last_name: str = None) -> str:
@@ -127,22 +128,7 @@ class AppLogic:
         final_answer = modify_answer_before_sending_to_telegram(final_ai_answer)
 
         if SHOW_DIAG_INFO7:
-            retries = diag_info.get("retries", "N/A")
-            sys_compl = diag_info.get("scores", {}).get("sys_message_compliance", "N/A")
-            self_desc = diag_info.get("scores", {}).get("self_description_correctness", "N/A")
-            models_used = diag_info.get("models_used", set())
-            request_type = diag_info.get("request_type", "N/A")
-            
-            # Format the set of models into a sorted, comma-separated string
-            if models_used:
-                # Ditch the provider part for brevity, e.g., "google/gemini-2.5-flash" -> "gemini-2.5-flash"
-                short_model_names = [name.split('/')[-1] for name in models_used]
-                models_str = ", ".join(sorted(short_model_names))
-            else:
-                models_str = "N/A"
-            
-            diag_str = f"[type:{request_type}; quality_retries:{retries}; sys_msg_compl:{sys_compl}; self:{self_desc}; models:{models_str}]"
-            
+            diag_str = format_diag_info(diag_info)
             final_answer += f"\n\n{diag_str}"
         
         return final_answer, provider_report 

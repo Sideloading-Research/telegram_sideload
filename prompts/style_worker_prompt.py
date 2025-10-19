@@ -34,6 +34,12 @@ def construct_prompt(original_answer: str, chat_history: str) -> str:
             - Does it follow the formatting and style requirements outlined in the system message?
             - Is the answer too long? Can you make it even shorter? {IM_CHAT_LENGTH_NOTE}
             </evaluation_points>
+
+            <common failure modes>
+            The most common problems with the original answers are:
+            - LLM cliche phrases. Burn them with fire.
+            - Unnecessary verbosity. Always a good idea to make the answer shorter. If you cut the length in half while keeping the key points, you did the right thing.
+            </common failure modes>
             
             <examples>
                 <bad_example>
