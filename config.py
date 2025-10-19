@@ -187,7 +187,8 @@ SHOW_DIAG_INFO7 = True
 # If set to True, the style worker will iteratively rewrite the answer.
 REWRITE_LONG_ANSWERS7 = True
 
-REWRITE_THRESHOLD_CHARS = int(MAX_TELEGRAM_MESSAGE_LEN / 3)
+# 100 is a good default: rewrite most answers, except ones which are very short. 
+REWRITE_THRESHOLD_CHARS = 100
 
 # If set to more than 1, the style worker will process the input iteratively,
 # with the next iteration using the previous iteration's output as input.
