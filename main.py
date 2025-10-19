@@ -16,6 +16,7 @@ from telegram.constants import ChatType, MessageEntityType
 from telegram.error import TelegramError, BadRequest, TimedOut, NetworkError, RetryAfter
 
 from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7
+from config_sanity_checks import run_sanity_checks
 
 # Initialize managers and services
 # These are global instances for the bot's lifecycle.
@@ -376,6 +377,8 @@ async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 def main():
+    run_sanity_checks()
+    
     app = Application.builder().token(TOKEN).build()
 
     # Define combined filter for private chats not in ALLOWED_USER_IDS

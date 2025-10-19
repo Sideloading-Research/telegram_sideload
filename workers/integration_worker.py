@@ -12,6 +12,7 @@ from config import (
     INTEGRATION_WORKER_MAX_TOKENS,
     JAILBREAK_ALARM_TEXT,
     JAILBREAK_TRUNCATE_LEN,
+    MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN,
 )
 from ai_service import get_ai_response
 from utils.prompt_utils import build_initial_conversation_history, extract_conversational_messages
@@ -98,11 +99,37 @@ class IntegrationWorker(BaseWorker):
     def merge_answers(self, answers: list[str]) -> str:
         """Legacy concatenation of answers; kept as a fallback/debug tool."""
         separator = "\n--------------\n"
-        result = ""
-        for answer in answers:
-            result += answer + separator
-        result = result[:-len(separator)]
-        print(f"Merged answers (legacy):\n##\n{result}\n##")
+        
+        # Standard merge
+        result = separator.join(answers)
+
+        # If the result is too long, use the fallback mode
+        if len(result) > MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN:
+            original_len = len(result)
+            original_num_answers = len(answers)
+            print(f"# Merged answers are too long ({original_len} chars), using fallback mode.")
+            
+            sorted_answers = sorted(answers, key=len)
+            
+            included_answers = []
+            for answer in sorted_answers:
+                # Tentatively add the next answer and check the length
+                temp_list = included_answers + [answer]
+                if len(separator.join(temp_list)) > MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN:
+                    break
+                included_answers.append(answer)
+
+            result = separator.join(included_answers)
+            num_answers_included = len(included_answers)
+
+            len_diff = original_len - len(result)
+            answers_diff = original_num_answers - num_answers_included
+            print(f"# Fallback mode reduced length by {len_diff} chars and removed {answers_diff} answers.")
+
+        else:
+            print(f"# Merged answers are of a good length, using standard mode.")
+
+        print(f"Merged answers:\n##\n{result}\n##")
         return result
 
     def synthesize_answers(
@@ -134,7 +161,8 @@ class IntegrationWorker(BaseWorker):
 
         # Keep only the most recent part of the conversation for brevity
         recent_history = conversation_history[-6:]
-        integration_prompt = construct_integration_prompt(recent_history, answers)
+        merged_answers = self.merge_answers(answers)
+        integration_prompt = construct_integration_prompt(recent_history, merged_answers)
 
         llm_conversation_history = build_initial_conversation_history(
             system_message=system_message,

@@ -10,6 +10,7 @@ from ai_providers.anthropic_ai_provider import ask_anthropic
 from ai_providers.open_ai_provider import ask_open_ai
 from ai_providers.google_ai_provider import ask_google
 from ai_providers.open_router_provider import ask_open_router
+from ai_providers.ollama_ai_provider import ask_ollama
 from utils.tokens import is_token_limit_of_request_exceeded
 from utils.message_reducer import reduce_context_in_messages
 
@@ -120,6 +121,8 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
                 answer, model_name = ask_google(messages, max_length)
             elif provider == "openrouter":
                 answer, model_name = ask_open_router(messages, max_length)
+            elif provider == "ollama":
+                answer, model_name = ask_ollama(messages, max_length)
             else:
                 answer = f"unknown AI provider: {PROVIDER_FROM_ENV}"
                 model_name = "unknown"

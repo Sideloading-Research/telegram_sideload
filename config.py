@@ -1,14 +1,22 @@
 REPO_URL = "https://github.com/RomanPlusPlus/open-source-human-mind.git"
-
+DATASET_LOCAL_REPO_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
 DATASET_DIR_NAME_IN_REPO = "full_dataset"
 
-DATASET_LOCAL_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
+# if specified, this will take precedence over the online repo
+# Note: it doesn't need the dir specified in DATASET_DIR_NAME_IN_REPO. Just point 
+# to the full dataset directly. 
+# Deafult value: None
+LOCAL_MINDFILE_DIR_PATH = None
+
 
 IM_CHAT_LENGTH_NOTE = """
 This is an instant messaging chat. The answer must be very short. 
 If the answer is longer than 5 short sentences, it's a fail. 
 No need to cramp everything into a single message. It's a conversation, after all. You can always add more, later.
 """
+
+
+NO_RELEVANT_DATA_HINT = "NO RELEVANT DATA"
 
 PLATFORM_SPECIFIC_PROMPT_ADDITION = f"""Note: 
 {IM_CHAT_LENGTH_NOTE}
@@ -62,7 +70,11 @@ REFRESH_EVERY_N_REQUESTS = 10
 
 REMINDER_INTERVAL = 5 # How often to send the RESPONSE_FORMAT_REMINDER to the AI
 
-DEFAULT_AI_PROVIDER = "openrouter"
+"""
+Can be "openrouter" / "google" / "ollama".
+We strongly recommend "openrouter" for best performance.
+"""
+DEFAULT_AI_PROVIDER = "openrouter" 
 
 """
 The list of models will be split into chunks of four. 
@@ -113,6 +125,9 @@ for reference (as of 2025-10-10):
 - x-ai/grok-4-fast
 """
 
+# If using ollama, set the model here.
+OLLAMA_MODEL = "gemma3" 
+
 ENABLE_USER_DEFINED_AI_PROVIDERS7 = False # keep False, not fully implemented yet
 
 # Removed only from the answer visible to the user. Both will still be used internally.
@@ -123,12 +138,25 @@ BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 = True
 
 MAX_TELEGRAM_MESSAGE_LEN = 4096 # hardcoded by Telegram
 
+MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN = 5 * MAX_TELEGRAM_MESSAGE_LEN
+
 CHARS_PER_TOKEN = 1.7 # calculated from actual API response: 2,490,751 chars / 1,446,761 tokens
 
+# the de-facto context window size. Set it the same as in the LLM you use.
 MAX_TOKENS_ALLOWED_IN_REQUEST = 1000000 # got it from Google's error message
 
 
+"""
+If enabled, the structured_self_facts file will be truncated to fit within the context window.
+The truncation is done at the time of reading the mindfile.
+The goal as to get system message + structured_self_facts to be at most 50% of MAX_TOKENS_ALLOWED_IN_REQUEST.
+"""
+ULTRA_SMALL_CONTEXT_WINDOW_MODE7 = False
+
 PROTECTED_MINDFILE_PARTS = ["structured_self_facts", "structured_memories"]
+
+# the context window should be this times larger that the total length of the obligatory sources
+WORKERS_CONTEXT_WINDOW_MARGINE = 2
 
 # Safety margin for token limit calculations. Must be greater than 1.0.
 TOKEN_SAFETY_MARGIN = 1.2
@@ -136,8 +164,7 @@ TOKEN_SAFETY_MARGIN = 1.2
 # How many times to retry if the quality check fails.
 ANSWER_QUALITY_RETRIES_NUM = 3
 
-# For example, to enable it, set this to True
-# and then a user can type "openai> How are you?" to use OpenAI for one request.
+# experimental feature: don't use it yet
 GLOBAL_ENABLE_USER_DEFINED_AI_PROVIDERS7 = False
 
 
@@ -158,8 +185,8 @@ SHOW_DIAG_INFO7 = True
 # --- Token Limits ---
 DEFAULT_MAX_TOKENS = 2048
 AI_SERVICE_MAX_TOKENS = 500
-DATA_WORKER_MAX_TOKENS = 1500
-INTEGRATION_WORKER_MAX_TOKENS = 3000
+DATA_WORKER_MAX_TOKENS = 5000
+INTEGRATION_WORKER_MAX_TOKENS = 5000
 QUALITY_CHECKS_WORKER_MAX_TOKENS = 5000
 ANSWER_MODIFICATION_MAX_TOKENS = 500
 DOORMAN_WORKER_MAX_TOKENS = 1000
@@ -173,16 +200,4 @@ SOURCE_TAG_CLOSE = "</mindfile_source_file:"
 
 DESIGN_LINE = "=================================================="
 
-############################################################
-# --- Sanity checks ---
-############################################################
-
-if not SOURCE_TAG_OPEN.startswith("<"):
-    raise ValueError("MINDFILE_SOURCE_TAG_OPEN must start with '<'")
-if not SOURCE_TAG_CLOSE.startswith("</"):
-    raise ValueError("MINDFILE_SOURCE_TAG_CLOSE must start with '</'")
-
-if TOKEN_SAFETY_MARGIN <= 1.0:
-    raise ValueError("TOKEN_SAFETY_MARGIN must be greater than 1.0")
-
-# TODO: check if MAX_TOKENS_ALLOWED_IN_REQUEST larger than the len of the obligatory parts of "mini-me"s 
+# No sanity checks here. They are in config_sanity_checks.py 

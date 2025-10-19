@@ -2,7 +2,7 @@ import threading
 from typing import Tuple, Optional
 from utils.dataset_files import refresh_local_mindfile_data
 from utils.mindfile import get_system_message_and_context, Mindfile
-from config import REPO_URL, DATASET_LOCAL_DIR_PATH, REFRESH_EVERY_N_REQUESTS
+from config import REPO_URL, DATASET_LOCAL_REPO_DIR_PATH, REFRESH_EVERY_N_REQUESTS
 
 class MindDataManager:
     _instance = None
@@ -30,7 +30,7 @@ class MindDataManager:
         """Refresh the mind data from the repository."""
         print("Refreshing mind data...")
         try:
-            self._files_dict = refresh_local_mindfile_data(REPO_URL, DATASET_LOCAL_DIR_PATH)
+            self._files_dict = refresh_local_mindfile_data(REPO_URL, DATASET_LOCAL_REPO_DIR_PATH)
             if not self._files_dict:
                 # If refresh returns nothing, and we have no old data, it's a critical failure.
                 if not self._system_message:

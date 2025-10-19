@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from config import DATASET_DIR_NAME_IN_REPO
+from config import DATASET_DIR_NAME_IN_REPO, LOCAL_MINDFILE_DIR_PATH
 from utils.files_utils import get_existing_local_files
 from utils.github_tools import (
     backup_repo,
@@ -50,6 +50,13 @@ def update_files_and_hashes(temp_path, destination_path, current_hash, repo_url)
 
 
 def refresh_local_mindfile_data(repo_url, destination_path):
+    if LOCAL_MINDFILE_DIR_PATH:
+        if os.path.isdir(LOCAL_MINDFILE_DIR_PATH):
+            print(f"Using local mindfile from: {LOCAL_MINDFILE_DIR_PATH}")
+            return get_existing_local_files(LOCAL_MINDFILE_DIR_PATH)
+        else:
+            print(f"Warning: LOCAL_MINDFILE_DIR_PATH '{LOCAL_MINDFILE_DIR_PATH}' not found or not a directory. Falling back to repo.")
+
     files_dict = dict()
     temp_path = destination_path + "_temp"
 

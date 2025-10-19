@@ -1,3 +1,4 @@
+from prompts.data_worker_prompt import data_worker_prompt_addition
 from workers.base_worker import BaseWorker
 from utils.mindfile import Mindfile
 from ai_service import get_ai_response
@@ -53,6 +54,8 @@ class DataWorker(BaseWorker):
         # (not from conversation history - workers load their own data)
         system_message = self.get_worker_system_message(additional_prompt=user_info_prompt)
         worker_context = self._get_worker_context()
+
+        system_message += "\n\n" + data_worker_prompt_addition
 
         # Build initial conversation history using the standard pattern
         # (system message + context as assistant message, not as a second system message)
