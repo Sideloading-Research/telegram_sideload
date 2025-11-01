@@ -14,6 +14,14 @@ from ai_providers.ollama_ai_provider import ask_ollama
 from utils.tokens import is_token_limit_of_request_exceeded
 from utils.message_reducer import reduce_context_in_messages
 
+AI_PROVIDERS = {
+    "openai": ask_open_ai,
+    "anthropic": ask_anthropic,
+    "google": ask_google,
+    "openrouter": ask_open_router,
+    "ollama": ask_ollama,
+}
+
 MAX_CALLS_PER_PERIOD = 10000
 RATE_LIMIT_PERIOD_S = 60  # 1 min
 
@@ -117,18 +125,13 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
             print(f"Using provider: {provider}")
 
             answer, model_name = None, None
-            if provider == "openai":
-                answer, model_name = ask_open_ai(messages, max_length)
-            elif provider == "anthropic":
-                answer, model_name = ask_anthropic(messages, max_length)
-            elif provider == "google":
-                answer, model_name = ask_google(messages, max_length)
-            elif provider == "openrouter":
-                answer, model_name = ask_open_router(messages, max_length)
-            elif provider == "ollama":
-                answer, model_name = ask_ollama(messages, max_length)
+            provider_func = AI_PROVIDERS.get(provider)
+            if provider_func:
+                answer, model_name = provider_func(messages, max_length)
             else:
-                answer = f"unknown AI provider: {PROVIDER_FROM_ENV}"
+                supported_providers = ", ".join(AI_PROVIDERS.keys())
+                answer = f"unknown AI provider: {provider}. Supported providers are: {supported_providers}."
+                answer += f" Likely you have misspelled the provider name in the config.py or your environment variables."
                 model_name = "unknown"
 
             is_valid_answer = answer and answer.strip()

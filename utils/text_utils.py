@@ -1,4 +1,6 @@
 import math
+import textwrap
+from utils.tokens import count_tokens
 
 SENTENCE_TOKENS = [". ", "? ", "! ", ".\n", "?\n", "!\n"]
 
@@ -343,3 +345,18 @@ def truncate_text(text: str, max_len: int) -> str:
            print(line)
 
     return res
+
+
+def truncate_text_by_tokens(text: str, max_tokens: int) -> str:
+    """
+    Truncates text to a maximum number of tokens.
+    """
+    if count_tokens(text) <= max_tokens:
+        return text
+
+    # This is a rough approximation. We might need a more precise method
+    # if the token-to-char ratio is very uneven.
+    avg_chars_per_token = len(text) / count_tokens(text)
+    max_len = int(max_tokens * avg_chars_per_token)
+
+    return truncate_text(text, max_len)

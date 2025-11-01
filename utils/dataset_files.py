@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from config import DATASET_DIR_NAME_IN_REPO, LOCAL_MINDFILE_DIR_PATH
+import config
 from utils.files_utils import get_existing_local_files
 from utils.github_tools import (
     backup_repo,
@@ -11,11 +11,13 @@ from utils.github_tools import (
     load_repo_hash,
     save_repo_hash,
 )
+from utils.startup_checks import check_worker_mindfile_parts
+
 
 def verify_dataset_path(dataset_path):
     """Verify the dataset path exists."""
     if not os.path.exists(dataset_path):
-        print(f"Error: {DATASET_DIR_NAME_IN_REPO} dir not found in {dataset_path}")
+        print(f"Error: {config.DATASET_DIR_NAME_IN_REPO} dir not found in {dataset_path}")
         return False
     return True
 
@@ -28,17 +30,31 @@ def move_dataset(source_path, destination_path):
 
 
 def update_files_and_hashes(temp_path, destination_path, current_hash, repo_url):
-    files = []
-    dataset_path = os.path.join(temp_path, DATASET_DIR_NAME_IN_REPO)
+    files = {}
+    dataset_path = os.path.join(temp_path, config.DATASET_DIR_NAME_IN_REPO)
 
     if not verify_dataset_path(dataset_path):
         return files
 
+    temp_files_dict = get_existing_local_files(dataset_path)
+    valid7, error_report, warning_report = check_worker_mindfile_parts(
+        temp_files_dict
+    )
+    if warning_report:
+        print(f"Warning from remote mindfile validation:\n{warning_report}")
+    if not valid7:
+        print("=" * 50)
+        print("Validation of remote mindfile repository failed. Update aborted.")
+        print("The current local mindfile data will be used.")
+        print(f"Validation error:\n{error_report}")
+        print("=" * 50)
+        return {}  # Return empty dict to signal failure
+
     try:
-        backup_repo(repo_url, dataset_path)
+        backup_repo(repo_url, destination_path)
         move_dataset(dataset_path, destination_path)
         print(
-            f"\nCleaned up repository. Only {DATASET_DIR_NAME_IN_REPO} directory remains at {destination_path}"
+            f"\nCleaned up repository. Only {config.DATASET_DIR_NAME_IN_REPO} directory remains at {destination_path}"
         )
 
         save_repo_hash(current_hash)
@@ -50,12 +66,25 @@ def update_files_and_hashes(temp_path, destination_path, current_hash, repo_url)
 
 
 def refresh_local_mindfile_data(repo_url, destination_path):
-    if LOCAL_MINDFILE_DIR_PATH:
-        if os.path.isdir(LOCAL_MINDFILE_DIR_PATH):
-            print(f"Using local mindfile from: {LOCAL_MINDFILE_DIR_PATH}")
-            return get_existing_local_files(LOCAL_MINDFILE_DIR_PATH)
+    if config.LOCAL_MINDFILE_DIR_PATH:
+        if os.path.isdir(config.LOCAL_MINDFILE_DIR_PATH):
+            print(f"Using local mindfile from: {config.LOCAL_MINDFILE_DIR_PATH}")
+            files_dict = get_existing_local_files(config.LOCAL_MINDFILE_DIR_PATH)
+
+            valid7, error_report, warning_report = check_worker_mindfile_parts(
+                files_dict
+            )
+            if warning_report:
+                print(f"Warning:\n{warning_report}")
+            if not valid7:
+                raise FileNotFoundError(
+                    f"Local mindfile validation failed:\n{error_report}"
+                )
+            return files_dict
         else:
-            print(f"Warning: LOCAL_MINDFILE_DIR_PATH '{LOCAL_MINDFILE_DIR_PATH}' not found or not a directory. Falling back to repo.")
+            print(
+                f"Warning: LOCAL_MINDFILE_DIR_PATH '{config.LOCAL_MINDFILE_DIR_PATH}' not found or not a directory. Falling back to repo."
+            )
 
     files_dict = dict()
     temp_path = destination_path + "_temp"

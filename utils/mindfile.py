@@ -11,25 +11,114 @@ from config import (
     SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
     STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
     STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
+    STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT,
     ULTRA_SMALL_CONTEXT_WINDOW_MODE7,
     MAX_TOKENS_ALLOWED_IN_REQUEST,
     CHARS_PER_TOKEN,
     WORKERS_OBLIGATORY_PARTS,
+    ANSWER_TO_USER_TAG,
+    RESPONSE_FORMAT_REMINDER,
 )
 
 from utils.mf_entry import MF_entry
 from utils.tags_utils import build_source_tags, split_string_by_delimiters_with_max_len
-from utils.text_utils import get_splitting_params, truncate_text
-from utils.tokens import get_max_chars_allowed
+from utils.text_utils import get_splitting_params, truncate_text, truncate_text_by_tokens
+from utils.tokens import get_max_chars_allowed, count_tokens
 from utils.boxes_sorting import pack_into_boxes, verify_packing
+from utils.leftover_manager import process_and_generate_leftover
+from utils.compendium_logger import (
+    log_files_being_packed,
+    log_entry_sources,
+    log_compendium_distribution,
+)
 
 
 class Mindfile:
     def __init__(self, files_dict: dict[str, str]):
         if not files_dict:
             raise ValueError("files_dict cannot be empty.")
-        self.files_dict = files_dict
+        self.files_dict = files_dict.copy()  # Make a copy to allow modification
         self._validate_required_files()
+        self._process_and_inject_leftover()
+
+    def _log_truncation(
+        self, filename: str, limit: int, unit: str, reason: str, original_len: int
+    ):
+        """Logs the details of a truncation event."""
+        print(f"Original {filename} length: {original_len} {unit}")
+        print(f"Truncating {filename} to {limit} {unit}. Reason: {reason}")
+
+    def _process_and_inject_leftover(self):
+        """
+        Detects if structured_self_facts will be truncated, extracts leftover,
+        saves it to file, and adds it to files_dict for normal processing.
+        
+        This method is called early in __init__ to ensure leftover is available
+        before any other processing methods access files_dict.
+        """
+        facts_filename = STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT
+        system_msg_filename = SYSTEM_MESSAGE_FILE_WITHOUT_EXT
+        
+        # Check if we have the required files
+        if facts_filename not in self.files_dict or system_msg_filename not in self.files_dict:
+            return
+        
+        # Read contents
+        facts_content = self._read_file_content(facts_filename)
+        system_message_content = self._read_file_content(system_msg_filename)
+        
+        # Generate leftover if truncation is needed
+        leftover_dict = process_and_generate_leftover(
+            facts_content=facts_content,
+            system_message_content=system_message_content,
+            ultra_small_mode7=ULTRA_SMALL_CONTEXT_WINDOW_MODE7,
+            max_tokens_allowed=MAX_TOKENS_ALLOWED_IN_REQUEST,
+            leftover_filename_key=STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT
+        )
+        
+        # If leftover was generated, inject it into files_dict
+        if leftover_dict:
+            self.files_dict.update(leftover_dict)
+            print(f"Leftover injected into files_dict as '{STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT}'")
+
+    def _truncate_facts_if_needed(
+        self, facts_content: str, system_message_content: str
+    ) -> str:
+        """
+        Truncates the facts content based on token limits and ultra-small context mode.
+        """
+        original_tokens = count_tokens(facts_content)
+
+        # The general limit is 30% of the total request size.
+        final_token_limit = int(0.3 * MAX_TOKENS_ALLOWED_IN_REQUEST)
+        reason = f"file exceeds {final_token_limit} tokens limit"
+
+        # In ultra-small mode, there's a stricter limit to leave space for the system message.
+        if ULTRA_SMALL_CONTEXT_WINDOW_MODE7:
+            max_tokens_for_combo = MAX_TOKENS_ALLOWED_IN_REQUEST / 2
+            system_message_tokens = count_tokens(system_message_content)
+            small_mode_token_limit = max(
+                0, int(max_tokens_for_combo - system_message_tokens)
+            )
+
+            # Use the stricter (smaller) limit
+            if small_mode_token_limit < final_token_limit:
+                final_token_limit = small_mode_token_limit
+                reason = "ULTRA_SMALL_CONTEXT_WINDOW_MODE7"
+
+        if original_tokens > final_token_limit:
+            self._log_truncation(
+                filename=STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
+                limit=final_token_limit,
+                unit="tokens",
+                reason=reason,
+                original_len=original_tokens,
+            )
+            facts_content = truncate_text_by_tokens(
+                facts_content, final_token_limit
+            )
+
+        return facts_content
 
     def _get_processed_obligatory_parts(self) -> dict[str, str]:
         contents = {
@@ -38,22 +127,22 @@ class Mindfile:
             if filename in self.files_dict
         }
 
-        if ULTRA_SMALL_CONTEXT_WINDOW_MODE7:
-            system_message = contents.get(SYSTEM_MESSAGE_FILE_WITHOUT_EXT, "")
-            facts_content = contents.get(STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT, "")
+        system_message = contents.get(SYSTEM_MESSAGE_FILE_WITHOUT_EXT, "")
+        tag_to_check = f"<{ANSWER_TO_USER_TAG}>"
+        if system_message and tag_to_check not in system_message:
+            print(f"'{tag_to_check}' not found in system message. Appending reminder.")
+            system_message += RESPONSE_FORMAT_REMINDER
+            contents[SYSTEM_MESSAGE_FILE_WITHOUT_EXT] = system_message
 
-            max_len_for_combo = (MAX_TOKENS_ALLOWED_IN_REQUEST * CHARS_PER_TOKEN) / 2
-            max_len_for_facts = max(0, int(max_len_for_combo - len(system_message)))
+        facts_content = contents.get(STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT, "")
+        if facts_content:
+            truncated_facts = self._truncate_facts_if_needed(
+                facts_content, system_message
+            )
 
-            if len(facts_content) > max_len_for_facts:
-                print(
-                    f"Original {STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT} length: {len(facts_content)}"
-                )
-                print(
-                    f"Truncating {STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT} to {max_len_for_facts} chars."
-                )
-                truncated_content = truncate_text(facts_content, max_len_for_facts)
-                contents[STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT] = truncated_content
+            # Update contents if truncation happened
+            if truncated_facts is not facts_content:
+                contents[STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT] = truncated_facts
 
         return contents
 
@@ -89,6 +178,9 @@ class Mindfile:
         Packs entry texts into compendiums not exceeding the max allowed length,
         minimizing the number of compendiums.
         """
+        # Log which files are being packed (includes leftover tracking)
+        log_files_being_packed(self.files_dict)
+        
         processed_obligatory_parts = self._get_processed_obligatory_parts()
         max_chars = get_max_chars_allowed(
             consider_obligatory_worker_parts7=True,
@@ -97,12 +189,18 @@ class Mindfile:
         entries = self.get_entries(max_len=max_chars)
         compendiums: list[str] = []
         if entries:
-
+            # Log entry distribution
+            log_entry_sources(entries)
+            
             lengths = get_entry_lengths(entries)
             boxes = pack_into_boxes(lengths, max_chars)
             verify_packing(boxes, max_chars)
             size_to_indices = build_size_to_indices_map(lengths)
             compendiums = build_compendiums_from_boxes(boxes, entries, size_to_indices)
+            
+            # Log detailed compendium distribution
+            log_compendium_distribution(compendiums, self.files_dict)
+        
         return compendiums
 
     def _validate_required_files(self):
@@ -146,6 +244,11 @@ class Mindfile:
         if filename in WORKERS_OBLIGATORY_PARTS:
             # Return the processed version, which may be truncated
             return self._get_processed_obligatory_parts().get(filename, "")
+        
+        # For optional files, they might not be in files_dict if missing.
+        if filename not in self.files_dict:
+            return "" # Return empty string if optional file is missing
+            
         return self._read_file_content(filename)
 
     def get_system_message(self) -> str:
@@ -180,11 +283,13 @@ class Mindfile:
         processed_obligatory_parts = self._get_processed_obligatory_parts()
 
         for file in files_to_process:
+            content = ""
             if file in processed_obligatory_parts:
                 content = processed_obligatory_parts[file]
-                non_system_contents.append((file, content))
             elif file.startswith("internal_assets:") or file in self.files_dict:
                 content = self._read_file_content(file)
+            
+            if content:
                 non_system_contents.append((file, content))
                     
         # Sort contents to ensure structured facts appear first and memories last (if they exist in the list)
@@ -209,9 +314,11 @@ class Mindfile:
         # Add all files from files_dict, using the processed version for obligatory parts
         for filename in self.files_dict.keys():
             if filename in processed_obligatory_parts:
-                all_contents.append((filename, processed_obligatory_parts[filename]))
-            else:
-                all_contents.append((filename, self._read_file_content(filename)))
+                content = processed_obligatory_parts[filename]
+                all_contents.append((filename, content))
+            elif self.files_dict.get(filename):
+                content = self._read_file_content(filename)
+                all_contents.append((filename, content))
 
         sorted_contents = self._sort_context_contents(all_contents)
 

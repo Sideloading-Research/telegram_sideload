@@ -1,4 +1,5 @@
 import os
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters
 from telegram.ext import (
     Application,
@@ -12,11 +13,12 @@ import bot_config
 from utils.mind_data_manager import MindDataManager
 from conversation_manager import ConversationManager
 from app_logic import AppLogic
-from telegram.constants import ChatType, MessageEntityType
+from telegram.constants import ChatType, MessageEntityType, ChatAction
 from telegram.error import TelegramError, BadRequest, TimedOut, NetworkError, RetryAfter
 
 from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7
 from config_sanity_checks import run_sanity_checks
+import config
 
 # Initialize managers and services
 # These are global instances for the bot's lifecycle.
@@ -76,8 +78,6 @@ async def reply_text_wrapper(
     if len(text) > 4096:
         print(f"Warning: Message too long ({len(text)} chars), truncating to 4096")
         text = text[:4093] + "..."
-    
-    import asyncio
     
     for attempt in range(max_retries):
         try:
@@ -148,6 +148,20 @@ async def reply_text_wrapper(
             await asyncio.sleep(wait_time)
     
     return False
+
+
+async def send_typing_periodically(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    """Sends typing action every 4 seconds."""
+    try:
+        while True:
+            await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+            await asyncio.sleep(4)
+    except asyncio.CancelledError:
+        # This is expected when the task is cancelled.
+        # You can add a print here for debugging if you want.
+        pass
+    except Exception as e:
+        print(f"Error in send_typing_periodically: {e}")
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -238,104 +252,123 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         print("Update does not contain a message.")
         # user_message_text remains "<unsupported message type>"
 
+    # admin commands
+    if user_message_text == "admin:test":
+        config.set_data_source_mode("QUICK_TEST")
+        MIND_MANAGER.force_refresh()
+        await reply_text_wrapper(update, context, "quick test mode activated")
+        return
+    if user_message_text == "admin:norm":
+        config.set_data_source_mode("NORMAL")
+        MIND_MANAGER.force_refresh()
+        await reply_text_wrapper(update, context, "normal mode activated")
+        return
+
     print(f"Chat ID: {update.effective_chat.id}")
     
     if is_allowed(update):
-        bot_should_always_reply_in_group = False # Default for clarity, will be set by mention logic
-        # Conditional group message handling for deciding IF WE REPLY
-        if update.message and update.message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-            if BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
-                bot_was_mentioned_or_replied_to = False
-                
-                if message_text_content_for_mention_check and context.bot.username:
-                    bot_username_at = f"@{context.bot.username}"
-                    if message_entities_for_mention_check:
-                        for entity in message_entities_for_mention_check:
-                            if entity.type == MessageEntityType.MENTION:
-                                mention_text = message_text_content_for_mention_check[entity.offset : entity.offset + entity.length]
-                                if mention_text == bot_username_at:
-                                    bot_was_mentioned_or_replied_to = True
-                                    print(f"Bot was mentioned by @username: {bot_username_at}")
-                                    break
-                            elif entity.type == MessageEntityType.TEXT_MENTION: 
-                                if entity.user and entity.user.id == context.bot.id:
-                                    bot_was_mentioned_or_replied_to = True
-                                    print(f"Bot was mentioned by text_mention (user ID: {context.bot.id})")
-                                    break
-                elif not context.bot.username:
-                     print("Warning: Bot username not available in context.bot.username. Mention check might be unreliable.")
-
-                if not bot_was_mentioned_or_replied_to and update.message.reply_to_message:
-                    if update.message.reply_to_message.from_user and update.message.reply_to_message.from_user.id == context.bot.id:
-                        bot_was_mentioned_or_replied_to = True
-                        print("Message is a reply to the bot.")
-
-                # Check for trigger words if not already mentioned or replied to
-                if not bot_was_mentioned_or_replied_to and TRIGGER_WORDS_LIST and message_text_content_for_mention_check:
-                    for word in TRIGGER_WORDS_LIST:
-                        if word in message_text_content_for_mention_check.lower():
-                            bot_was_mentioned_or_replied_to = True
-                            print(f"Bot triggered by word: '{word}'")
-                            break # Exit loop once a trigger word is found
-
-                # This variable now controls if we REPLY, not if we PROCESS
-                bot_should_always_reply_in_group = bot_was_mentioned_or_replied_to 
-                
-                if not bot_should_always_reply_in_group:
-                    print(f"In group {update.effective_chat.id}, bot not mentioned/replied to. Message will be processed for history, but bot will not reply.")
-            # Else (BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 is False), bot_should_always_reply_in_group remains True
-
-        # Message is processed for history regardless of mention status (if is_allowed)
-        user_id = update.effective_user.id
-        username = update.effective_user.username
-        first_name = update.effective_user.first_name
-        last_name = update.effective_user.last_name
-        chat_id = update.effective_chat.id
-        chat_type = update.effective_chat.type
-
-        # Determine if AI reply should be generated by AppLogic
-        generate_ai_reply_for_app_logic = False
-        if chat_type == ChatType.PRIVATE:
-            generate_ai_reply_for_app_logic = True
-        elif chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-            if not BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
-                generate_ai_reply_for_app_logic = True # Always generate if config is off
-            else:
-                # Generate only if mentioned/replied to, this is the bot_should_always_reply_in_group variable
-                generate_ai_reply_for_app_logic = bot_should_always_reply_in_group 
-        
-        print(f"Decision for chat {chat_id} (type: {chat_type}): Generate AI reply in AppLogic? {generate_ai_reply_for_app_logic}. Bot should send reply if available? {bot_should_always_reply_in_group if chat_type != ChatType.PRIVATE else True}")
-
-        answer, provider_report = APPLICATION_LOGIC.process_user_request(
-            user_id=user_id,
-            raw_user_message=user_message_text,
-            chat_id=chat_id,            
-            chat_type=chat_type,  
-            generate_ai_reply=generate_ai_reply_for_app_logic,
-            username=username,
-            first_name=first_name,
-            last_name=last_name
+        typing_task = asyncio.create_task(
+            send_typing_periodically(context, update.effective_chat.id)
         )
-        
-        # Conditional reply logic: only send if an answer was generated AND conditions met
-        should_send_reply_based_on_mention_rules = False
-        if chat_type == ChatType.PRIVATE:
-            should_send_reply_based_on_mention_rules = True
-        elif chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
-            if not BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
-                should_send_reply_based_on_mention_rules = True 
-            else:
-                should_send_reply_based_on_mention_rules = bot_should_always_reply_in_group
+        try:
+            bot_should_always_reply_in_group = False # Default for clarity, will be set by mention logic
+            # Conditional group message handling for deciding IF WE REPLY
+            if update.message and update.message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+                if BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
+                    bot_was_mentioned_or_replied_to = False
+                    
+                    if message_text_content_for_mention_check and context.bot.username:
+                        bot_username_at = f"@{context.bot.username}"
+                        if message_entities_for_mention_check:
+                            for entity in message_entities_for_mention_check:
+                                if entity.type == MessageEntityType.MENTION:
+                                    mention_text = message_text_content_for_mention_check[entity.offset : entity.offset + entity.length]
+                                    if mention_text == bot_username_at:
+                                        bot_was_mentioned_or_replied_to = True
+                                        print(f"Bot was mentioned by @username: {bot_username_at}")
+                                        break
+                                elif entity.type == MessageEntityType.TEXT_MENTION: 
+                                    if entity.user and entity.user.id == context.bot.id:
+                                        bot_was_mentioned_or_replied_to = True
+                                        print(f"Bot was mentioned by text_mention (user ID: {context.bot.id})")
+                                        break
+                    elif not context.bot.username:
+                         print("Warning: Bot username not available in context.bot.username. Mention check might be unreliable.")
 
-        if answer and should_send_reply_based_on_mention_rules:
-            if provider_report: 
-                await reply_text_wrapper(update, context, provider_report)
-            await reply_text_wrapper(update, context, answer)
-            print(f"Replied with generated answer in chat {chat_id}.")
-        elif not answer and should_send_reply_based_on_mention_rules:
-             print(f"Logic indicated a reply should be sent in chat {chat_id}, but no answer was generated (generate_ai_reply was False). This is expected if not mentioned in group/mention-only mode.")
-        else:
-            print(f"Processed message for history in chat {chat_id}. No reply sent (either answer was None or mention rules not met).")
+                    if not bot_was_mentioned_or_replied_to and update.message.reply_to_message:
+                        if update.message.reply_to_message.from_user and update.message.reply_to_message.from_user.id == context.bot.id:
+                            bot_was_mentioned_or_replied_to = True
+                            print("Message is a reply to the bot.")
+
+                    # Check for trigger words if not already mentioned or replied to
+                    if not bot_was_mentioned_or_replied_to and TRIGGER_WORDS_LIST and message_text_content_for_mention_check:
+                        for word in TRIGGER_WORDS_LIST:
+                            if word in message_text_content_for_mention_check.lower():
+                                bot_was_mentioned_or_replied_to = True
+                                print(f"Bot triggered by word: '{word}'")
+                                break # Exit loop once a trigger word is found
+
+                    # This variable now controls if we REPLY, not if we PROCESS
+                    bot_should_always_reply_in_group = bot_was_mentioned_or_replied_to 
+                    
+                    if not bot_should_always_reply_in_group:
+                        print(f"In group {update.effective_chat.id}, bot not mentioned/replied to. Message will be processed for history, but bot will not reply.")
+                # Else (BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 is False), bot_should_always_reply_in_group remains True
+
+            # Message is processed for history regardless of mention status (if is_allowed)
+            user_id = update.effective_user.id
+            username = update.effective_user.username
+            first_name = update.effective_user.first_name
+            last_name = update.effective_user.last_name
+            chat_id = update.effective_chat.id
+            chat_type = update.effective_chat.type
+
+            # Determine if AI reply should be generated by AppLogic
+            generate_ai_reply_for_app_logic = False
+            if chat_type == ChatType.PRIVATE:
+                generate_ai_reply_for_app_logic = True
+            elif chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+                if not BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
+                    generate_ai_reply_for_app_logic = True # Always generate if config is off
+                else:
+                    # Generate only if mentioned/replied to, this is the bot_should_always_reply_in_group variable
+                    generate_ai_reply_for_app_logic = bot_should_always_reply_in_group 
+            
+            print(f"Decision for chat {chat_id} (type: {chat_type}): Generate AI reply in AppLogic? {generate_ai_reply_for_app_logic}. Bot should send reply if available? {bot_should_always_reply_in_group if chat_type != ChatType.PRIVATE else True}")
+
+            answer, provider_report = await asyncio.to_thread(
+                APPLICATION_LOGIC.process_user_request,
+                user_id=user_id,
+                raw_user_message=user_message_text,
+                chat_id=chat_id,            
+                chat_type=chat_type,  
+                generate_ai_reply=generate_ai_reply_for_app_logic,
+                username=username,
+                first_name=first_name,
+                last_name=last_name
+            )
+            
+            # Conditional reply logic: only send if an answer was generated AND conditions met
+            should_send_reply_based_on_mention_rules = False
+            if chat_type == ChatType.PRIVATE:
+                should_send_reply_based_on_mention_rules = True
+            elif chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+                if not BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
+                    should_send_reply_based_on_mention_rules = True 
+                else:
+                    should_send_reply_based_on_mention_rules = bot_should_always_reply_in_group
+
+            if answer and should_send_reply_based_on_mention_rules:
+                if provider_report: 
+                    await reply_text_wrapper(update, context, provider_report)
+                await reply_text_wrapper(update, context, answer)
+                print(f"Replied with generated answer in chat {chat_id}.")
+            elif not answer and should_send_reply_based_on_mention_rules:
+                 print(f"Logic indicated a reply should be sent in chat {chat_id}, but no answer was generated (generate_ai_reply was False). This is expected if not mentioned in group/mention-only mode.")
+            else:
+                print(f"Processed message for history in chat {chat_id}. No reply sent (either answer was None or mention rules not met).")
+        finally:
+            typing_task.cancel()
 
     else:
         await restrict(update, context)
@@ -343,35 +376,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if is_allowed(update):
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        chat_type = update.effective_chat.type
-        
-        # Get the text after the command
-        user_input = ' '.join(context.args)
-        if not user_input:
-            await reply_text_wrapper(update, context, "Please provide a message after the command, like: /ask How are you?")
-            return
-
-        username = update.effective_user.username
-        first_name = update.effective_user.first_name
-        last_name = update.effective_user.last_name
-
-        answer, provider_report = APPLICATION_LOGIC.process_user_request(
-            user_id=user_id,
-            raw_user_message=user_input, 
-            chat_id=chat_id,            
-            chat_type=chat_type, 
-            generate_ai_reply=True, # Commands should always generate a reply       
-            username=username,
-            first_name=first_name,
-            last_name=last_name
+        typing_task = asyncio.create_task(
+            send_typing_periodically(context, update.effective_chat.id)
         )
-
-        if provider_report: # Send provider switch report if any
-            await reply_text_wrapper(update, context, provider_report)
+        try:
+            user_id = update.effective_user.id
+            chat_id = update.effective_chat.id
+            chat_type = update.effective_chat.type
             
-        await reply_text_wrapper(update, context, answer)
+            # Get the text after the command
+            user_input = ' '.join(context.args)
+            if not user_input:
+                await reply_text_wrapper(update, context, "Please provide a message after the command, like: /ask How are you?")
+                return
+
+            username = update.effective_user.username
+            first_name = update.effective_user.first_name
+            last_name = update.effective_user.last_name
+
+            answer, provider_report = await asyncio.to_thread(
+                APPLICATION_LOGIC.process_user_request,
+                user_id=user_id,
+                raw_user_message=user_input, 
+                chat_id=chat_id,            
+                chat_type=chat_type, 
+                generate_ai_reply=True, # Commands should always generate a reply       
+                username=username,
+                first_name=first_name,
+                last_name=last_name
+            )
+
+            if provider_report: # Send provider switch report if any
+                await reply_text_wrapper(update, context, provider_report)
+                
+            await reply_text_wrapper(update, context, answer)
+        finally:
+            typing_task.cancel()
     else:
         await restrict(update, context)
 

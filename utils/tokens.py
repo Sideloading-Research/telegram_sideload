@@ -6,6 +6,7 @@ from config import (
     DATASET_LOCAL_REPO_DIR_PATH,
 )
 import os
+from utils.env_and_prints import dedent_and_strip
 
 
 def count_tokens(text):
@@ -62,6 +63,7 @@ def get_max_chars_allowed(
 
     if consider_obligatory_worker_parts7:
         obligatory_parts_len = 0
+        part_details = []
         for part in WORKERS_OBLIGATORY_PARTS:
             part_len = 0
             if files_content_override and part in files_content_override:
@@ -73,6 +75,7 @@ def get_max_chars_allowed(
                         part_len = len(f.read())
             
             obligatory_parts_len += part_len
+            part_details.append(f"  - {part}.txt: {part_len} chars")
             print(f"{part} part_len: {part_len}")
 
         print(f"obligatory_parts_len: {obligatory_parts_len}")
@@ -81,6 +84,31 @@ def get_max_chars_allowed(
     print(f"max_chars: {max_chars}")
 
     if max_chars < 0:
-        raise ValueError(f"max_chars is negative: {max_chars}")
+        initial_max_chars = int(absolute_max_chars / TOKEN_SAFETY_MARGIN)
+        if consider_obligatory_worker_parts7:
+            part_details_str = "\\n".join(part_details)
+            error_message = f"""
+                max_chars is negative: {max_chars}.
+
+                This is because the total size of the 'obligatory worker parts' is too large for the current token limit settings.
+
+                Calculated initial max characters: {initial_max_chars}
+                Total size of obligatory parts: {obligatory_parts_len} chars
+
+                Culprit files (from WORKERS_OBLIGATORY_PARTS in config.py):
+                {part_details_str}
+
+                To resolve this, you can:
+                1. Reduce the size of the above files.
+                2. Use a model with a larger context window, and increase `MAX_TOKENS_ALLOWED_IN_REQUEST` in `config.py`.
+            """
+            raise ValueError(dedent_and_strip(error_message))
+        else:
+            raise ValueError(
+                f"max_chars is negative: {max_chars}. "
+                "This is likely due to your settings in config.py. "
+                f"MAX_TOKENS_ALLOWED_IN_REQUEST ({MAX_TOKENS_ALLOWED_IN_REQUEST}) might be too small "
+                f"or TOKEN_SAFETY_MARGIN ({TOKEN_SAFETY_MARGIN}) might be too large."
+            )
 
     return max_chars

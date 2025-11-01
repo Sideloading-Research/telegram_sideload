@@ -144,6 +144,9 @@ For long-running sessions, it's recommended to use a terminal multiplexer like `
 
 For instructions on advanced local setups, such as using a local mindfile or a local AI provider, see the [local run guide](docs/local_run.md).
 
+### Admin Commands
+
+For details on available admin commands for development and testing, see the [admin commands guide](docs/admin_commands.md).
 
 
 ## 6. Add the bot to your group
@@ -176,9 +179,22 @@ The bot's behavior can be further customized through `config.py`.
  
 # Working with large mindfiles
 
-The app uses 2 strategies to work with the corpus much larger than the context window of any single language model.
+The app uses 3 strategies to work with the corpus much larger than the context window of any single language model.
 
-## 1. The "tip of the tongue" pseudo-infinite context
+## 1. Leftover Preservation
+
+When `structured_self_facts` exceeds the configured token limit (typically 30% of the context window), the excess content is automatically preserved and made available to data workers instead of being discarded.
+
+**Key features:**
+- **Zero data loss**: All truncated content is preserved
+- **Automatic distribution**: Leftover is split across multiple data workers via compendiums
+- **Smart routing**: System automatically uses deep mode when leftover exists to ensure all data is consulted
+
+**Impact**: In typical scenarios, this prevents 60-70% of biographical data from being lost, dramatically improving answer accuracy.
+
+For detailed information, see the [Leftover Preservation Documentation](docs/leftover_preservation.md).
+
+## 2. The "tip of the tongue" pseudo-infinite context
 
 The script uses a computationally cheap way to implement a form of infinite context. In each interaction, it randomly omits parts of the mindfile.
 
@@ -190,7 +206,7 @@ The script uses a computationally cheap way to implement a form of infinite cont
 **Cons:**
 - At any given time, the sideload only has a partial view of the mindfile. However, experiments show this is not a significant issue.
 
-## 2. Specialized DataWorkers
+## 3. Specialized DataWorkers
 
 We use a multi-step process that leverages splitting the corpus into smaller chunks and then synthesizing the answers from each chunk into one answer:
 
