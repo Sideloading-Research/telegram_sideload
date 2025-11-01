@@ -9,11 +9,13 @@ WORKER_SPECIFIC_PARTS = {
         "type": "meta",
     },
     "integration_worker": {
-        "mindfile_parts": ["internal_assets:this_architecture_description"],
+        "mindfile_parts": [],
+        "mindfile_parts_optional": ["internal_assets:this_architecture_description"],
         "type": "meta",
     },
     "style_worker": {
-        "mindfile_parts": ["dialogs", "interviews_etc"],
+        "mindfile_parts": ["dialogs"],
+        "mindfile_parts_optional": ["interviews_etc"],
         "type": "meta",
     },
     "doorman_worker": {
@@ -23,12 +25,15 @@ WORKER_SPECIFIC_PARTS = {
     "data_worker": {
         "mindfile_parts": [
             "structured_memories",
-            "consumed_media_list",
             "dialogs",
+        ],
+        "mindfile_parts_optional": [
+            "consumed_media_list",
             "interviews_etc",
             "writings_non_fiction",
             "dreams",
             "writings_fiction",
+            "structured_self_facts_leftover",
         ],
         "type": "data",
     },
@@ -40,6 +45,7 @@ WORKER_SPECIFIC_PARTS = {
 WORKERS_CONFIG = {}
 for worker_name, specs in WORKER_SPECIFIC_PARTS.items():
     WORKERS_CONFIG[worker_name] = {
-        "mindfile_parts": WORKERS_OBLIGATORY_PARTS + specs["mindfile_parts"],
+        "mindfile_parts": WORKERS_OBLIGATORY_PARTS + specs.get("mindfile_parts", []),
+        "mindfile_parts_optional": specs.get("mindfile_parts_optional", []),
         "type": specs["type"],
     }

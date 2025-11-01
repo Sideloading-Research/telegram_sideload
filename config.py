@@ -6,8 +6,9 @@ DATASET_DIR_NAME_IN_REPO = "full_dataset"
 # Note: it doesn't need the dir specified in DATASET_DIR_NAME_IN_REPO. Just point 
 # to the full dataset directly. 
 # Deafult value: None
+# LOCAL_MINDFILE_DIR_PATH = "/Users/f58fkvgh/Desktop/Turchin_structured_mindfolder"
 LOCAL_MINDFILE_DIR_PATH = None
-
+# LOCAL_MINDFILE_DIR_PATH = "/Users/f58fkvgh/Documents/DEV/REPOS/telegram_sideload/tests/test_data/smaller_versions_of_dataset/300k"
 
 IM_CHAT_LENGTH_NOTE = """
 This is an instant messaging chat. The answer must be very short. 
@@ -59,6 +60,7 @@ SYSTEM_MESSAGE_FILE_WITHOUT_EXT = "system_message"
 # Thus, we place these these two as the first and last items in the context.
 STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT = "structured_self_facts" 
 STRUCTURED_MEMORIES_FILE_WITHOUT_EXT = "structured_memories"
+STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT = "structured_self_facts_leftover"
 
 WORKERS_OBLIGATORY_PARTS = [ # supplied to each worker, making it "mini-me"
     SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
@@ -159,7 +161,7 @@ PROTECTED_MINDFILE_PARTS = ["structured_self_facts", "structured_memories"]
 WORKERS_CONTEXT_WINDOW_MARGINE = 2
 
 # Safety margin for token limit calculations. Must be greater than 1.0.
-TOKEN_SAFETY_MARGIN = 1.2
+TOKEN_SAFETY_MARGIN = 1.3 # 1.3. is reasonable, works for both EN and RU if CHARS_PER_TOKEN = 1.7
 
 # How many times to retry if the quality check fails.
 ANSWER_QUALITY_RETRIES_NUM = 3
@@ -211,5 +213,29 @@ SOURCE_TAG_OPEN = "<mindfile_source_file:"
 SOURCE_TAG_CLOSE = "</mindfile_source_file:"
 
 DESIGN_LINE = "=================================================="
+
+# --- Dev tools ---
+
+QUICK_TEST_SIDELOAD = "tests/test_data/smaller_versions_of_dataset/300k"
+
+# Preserve the initial local override value to restore on NORMAL mode
+ORIGINAL_LOCAL_MINDFILE_DIR_PATH = LOCAL_MINDFILE_DIR_PATH
+
+# --- Data source mode ---
+# NORMAL: use remote repo-sync (or existing local clone)
+# QUICK_TEST: use local test dataset in QUICK_TEST_SIDELOAD
+DATA_SOURCE_MODE = "NORMAL"
+
+def set_data_source_mode(mode: str) -> None:
+    """Switch between NORMAL and QUICK_TEST data sources.
+    This function updates LOCAL_MINDFILE_DIR_PATH accordingly.
+    """
+    global DATA_SOURCE_MODE, LOCAL_MINDFILE_DIR_PATH
+    if mode == "QUICK_TEST":
+        DATA_SOURCE_MODE = "QUICK_TEST"
+        LOCAL_MINDFILE_DIR_PATH = QUICK_TEST_SIDELOAD
+    else:
+        DATA_SOURCE_MODE = "NORMAL"
+        LOCAL_MINDFILE_DIR_PATH = ORIGINAL_LOCAL_MINDFILE_DIR_PATH
 
 # No sanity checks here. They are in config_sanity_checks.py 

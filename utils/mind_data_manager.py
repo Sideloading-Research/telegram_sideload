@@ -2,6 +2,7 @@ import threading
 from typing import Tuple, Optional
 from utils.dataset_files import refresh_local_mindfile_data
 from utils.mindfile import get_system_message_and_context, Mindfile
+from utils.startup_checks import check_worker_mindfile_parts
 from config import REPO_URL, DATASET_LOCAL_REPO_DIR_PATH, REFRESH_EVERY_N_REQUESTS
 
 class MindDataManager:
@@ -29,19 +30,32 @@ class MindDataManager:
     def _refresh_data(self) -> None:
         """Refresh the mind data from the repository."""
         print("Refreshing mind data...")
+        
+        # Cleanup old leftover files before refresh
+        from utils.leftover_manager import cleanup_leftover_files
+        cleanup_leftover_files()
+        
         try:
-            self._files_dict = refresh_local_mindfile_data(REPO_URL, DATASET_LOCAL_REPO_DIR_PATH)
-            if not self._files_dict:
+            refreshed_files_dict = refresh_local_mindfile_data(
+                REPO_URL, DATASET_LOCAL_REPO_DIR_PATH
+            )
+
+            if not refreshed_files_dict:
                 # If refresh returns nothing, and we have no old data, it's a critical failure.
                 if not self._system_message:
                     raise RuntimeError("Initial mind data load failed: no files found.")
                 else:
                     # If we have old data, just warn and continue with it.
-                    print("Warning: Mind data refresh resulted in no files. Using stale data.")
-                    return # Skip updating system_message and context
-            
-            self._system_message, self._context = get_system_message_and_context(self._files_dict)
-            
+                    print(
+                        "Warning: Mind data refresh resulted in no files. Using stale data."
+                    )
+                    return  # Skip updating system_message and context
+
+            self._files_dict = refreshed_files_dict
+            self._system_message, self._context = get_system_message_and_context(
+                self._files_dict
+            )
+
             with self._counter_lock:
                 self._request_counter = 0
         except Exception as e:

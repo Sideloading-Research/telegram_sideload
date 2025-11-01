@@ -16,6 +16,7 @@ from config import (
     STYLE_WORKER_ITERATIONS_NUM,
     REWRITE_LONG_ANSWERS7,
     REWRITE_THRESHOLD_CHARS,
+    STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT,
 )
 from ai_service import get_ai_response
 from utils.prompt_utils import build_initial_conversation_history, extract_conversational_messages
@@ -33,6 +34,15 @@ class IntegrationWorker(BaseWorker):
         self.compendium_data_workers: list[DataWorker] = []
         self.user_info_prompt = None
         self.doorman_worker = None
+
+    def _has_leftover(self) -> bool:
+        """
+        Checks if leftover content exists in the mindfile.
+        
+        Returns:
+            True if leftover exists, False otherwise
+        """
+        return STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT in self.mindfile.files_dict
 
     def _initialize_workers(self):
         """Initializes all necessary worker instances."""
@@ -319,7 +329,17 @@ class IntegrationWorker(BaseWorker):
                 sanitized_messages_history = list(sanitized_messages_history)
                 sanitized_messages_history[-1] = {"role": "user", "content": user_message_for_workers}
         else:
-            deep_dive7 = request_type == "deep"
+            # Check if leftover exists - if so, force deep mode
+            # Reason: In shallow mode, only the generalist worker is used, which may not
+            # have access to all leftover content. Deep mode ensures compendium workers
+            # with leftover content are consulted.
+            has_leftover7 = self._has_leftover()
+            
+            if has_leftover7 and request_type == "shallow":
+                print("Leftover detected: forcing deep mode to ensure all preserved data is consulted")
+                deep_dive7 = True
+            else:
+                deep_dive7 = request_type == "deep"
 
         best_answer_data = {"answer": None, "score_sum": -1, "scores": {}, "models_used": set()}
         provider_report = None

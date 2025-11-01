@@ -8,3 +8,4 @@ MINDFILE_PARTS/
 last_commit_hash.txt
 context_for_debug.txt
 expendable_shrinked.txt
+.telegram_sideload_cache/

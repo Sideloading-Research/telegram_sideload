@@ -10,7 +10,9 @@ class BaseWorker(ABC):
         self.worker_name = worker_name
         self.display_name = custom_display_name if custom_display_name is not None else worker_name
         self.config = WORKERS_CONFIG[worker_name]
-        self.mindfile_parts = self.config["mindfile_parts"]
+        self.mindfile_parts = self.config.get("mindfile_parts", []) + self.config.get(
+            "mindfile_parts_optional", []
+        )
         self.mindfile = None  # Set by child class __init__
         
         # Diagnostics support (opt-in via collect_diagnostics7)
