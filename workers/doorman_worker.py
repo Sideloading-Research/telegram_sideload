@@ -16,7 +16,7 @@ class DoormanWorker(BaseWorker):
         First, it checks if any line (from last to first) starts with a possible type.
         If not found, it checks if any possible type is present anywhere in the response.
         """
-        possible_types = ["JAILBREAK", "EXPLOITATION", "SHALLOW", "DEEP"]
+        possible_types = ["JAILBREAK", "EXPLOITATION", "SHALLOW", "DEEP", "GENIUS"]
         lines = response_text.split('\n')
 
         # First pass: check line starts, from last to first

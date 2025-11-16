@@ -98,6 +98,10 @@ MODELS_TO_ATTEMPT = [
   "minimax/minimax-01",
 ]
 
+EXPENSIVE_SMART_MODELS = [
+    "google/gemini-2.5-pro",
+    "anthropic/claude-sonnet-4.5",
+]
 """
 Other models supported by openRouter with at least 1M contect length, 
 for reference (as of 2025-10-10):
@@ -125,6 +129,9 @@ for reference (as of 2025-10-10):
 - qwen/qwen-plus-2025-07-28:thinking
 - qwen/qwen-turbo
 - x-ai/grok-4-fast
+
+One can also view the list here:
+https://openrouter.ai/models?fmt=table&order=context-high-to-low
 """
 
 # If using ollama, set the model here.
@@ -175,13 +182,10 @@ GLOBAL_ENABLE_USER_DEFINED_AI_PROVIDERS7 = False
 ANSWER_QUALITY_RETRIES_NUM = 4
 
 # The minimum score (inclusive) on each quality scale for an answer to be accepted.
-MIN_ANSWER_QUALITY_SCORE = 8
+MIN_ANSWER_QUALITY_SCORE = 9 # of 10
 
-# For `app_logic._generate_and_verify_answer`
 ANSWER_QUALITY_RETRIES_NUM = 3 # Number of retries if quality check fails
-MIN_ANSWER_QUALITY_SCORE = 8 # The minimum score (inclusive) on each quality scale for an answer to be accepted.
 
-# For `app_logic.process_user_request`
 SHOW_DIAG_INFO7 = True
 
 # --- Style worker settings ---

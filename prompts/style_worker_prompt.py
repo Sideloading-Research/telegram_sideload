@@ -18,16 +18,21 @@ def construct_prompt(original_answer: str, chat_history: str) -> str:
             ---- "you're hitting on some..."
             ---- "Your insights into..."
             ---- "That's the way to..."
+            ---- "That's exactly it..."
+            ---- "That's precisely what..."
             ---- "This not merely X, but Y..."
             ---- "It's about X, not just Y..."
             ---- "It's less about X and more about Y..."
+            ---- "It's all about X..."
+            ---- "Honestly,..."
+            ---- "X is a solid step..."
             ---- This extremely annoying habit of repeating the user's question:
             -------- "X, you say?..."
             -------- "Ah, X..."
             -------- "X, eh?..."
             -------- "X?..."
             -------- "X? Nah,..."
-            - Does it contain the formatting overused by LLMs? (**bold**, *italic*, etc.). Avoid any use of the "*" symbol for formatting, too typical of LLMs. Remove it completely.
+            - Does it contain the formatting overused by LLMs? (**bold**, *italic*, "—" em dashes, etc.). Avoid any use of the "*" symbol for formatting, too typical of LLMs. Remove it completely.
             - Another thing massively overused by LLMs are bullet points. Avoid them too. In a normal conversation, humans almost never use them.
             - Does it much your authentic style, voice, personality, vocabulary, sentence structure, tone, emotion, vibe?
             - Does it contains things explicitly forbidden by the system message?
@@ -38,6 +43,7 @@ def construct_prompt(original_answer: str, chat_history: str) -> str:
             <common failure modes>
             The most common problems with the original answers are:
             - LLM cliche phrases. Burn them with fire.
+            - Repeating the user's question or its part. E.g. "X, you say?..." You are in a chat, it's clear which question you are answering, no need to repeat it.
             - Unnecessary verbosity. Always a good idea to make the answer shorter. If you cut the length in half while keeping the key points, you did the right thing.
             </common failure modes>
             
@@ -54,6 +60,7 @@ def construct_prompt(original_answer: str, chat_history: str) -> str:
             Please note that the original answer was written by an instance of you who can access the entire huge corpus of memories etc (unlike your instance).
             But that other instance is usually terrible at writing in your style.
             Thus, assume that the answer is factually correct, but you need to fix the style, tone, length, formatting, language, etc.
+            Don't rephrase the parts that clearly intended to be exact quotes.
 
             Original Answer to Rewrite:
             <original_answer>

@@ -22,6 +22,9 @@ from ai_service import get_ai_response
 from utils.prompt_utils import build_initial_conversation_history, extract_conversational_messages
 from prompts.integration_worker_prompt import construct_prompt as construct_integration_prompt
 from utils.diag_utils import build_diag_info
+from utils.usage_accounting import start_round, end_round_print  # NEW: per-round cost tracking
+from utils.usage_accounting import record_round_cost_to_disk, print_current_month_total  # NEW: disk and monthly total
+from utils.usage_accounting import set_genius_mode7, clear_genius_mode7  # NEW: round-scoped GENIUS mode flag
 
 
 class IntegrationWorker(BaseWorker):
@@ -307,6 +310,9 @@ class IntegrationWorker(BaseWorker):
         return False
 
     def _process(self, messages_history: list[dict[str, str]], raw_user_message: str) -> tuple[str, str | None, dict]:
+        # Start per-round cost tracking
+        start_round()
+        
         self._initialize_workers()
         self.clear_diag_events()
 
@@ -314,6 +320,8 @@ class IntegrationWorker(BaseWorker):
         # Note: doorman will automatically extract conversational messages (skipping system and context loads)
         history_for_doorman = messages_history[:-1]
         request_type = self.doorman_worker.process(raw_user_message, history_for_doorman)
+        # Set per-round GENIUS flag (active for entire round of OpenRouter calls)
+        set_genius_mode7(request_type == "genius")
         
         user_message_for_workers = raw_user_message
         sanitized_messages_history = messages_history
@@ -339,7 +347,7 @@ class IntegrationWorker(BaseWorker):
                 print("Leftover detected: forcing deep mode to ensure all preserved data is consulted")
                 deep_dive7 = True
             else:
-                deep_dive7 = request_type == "deep"
+                deep_dive7 = request_type in ("deep", "genius")
 
         best_answer_data = {"answer": None, "score_sum": -1, "scores": {}, "models_used": set()}
         provider_report = None
@@ -414,5 +422,14 @@ class IntegrationWorker(BaseWorker):
             request_type=request_type,
             style_iterations=style_iterations_taken,
         )
+        
+        # End per-round cost tracking and print total
+        end_round_print()
+        # Clear GENIUS mode flag at the end of the round
+        clear_genius_mode7()
+        
+        # Persist the round cost to disk and print month total
+        record_round_cost_to_disk()
+        print_current_month_total()
         
         return final_ai_answer, provider_report, diag_info

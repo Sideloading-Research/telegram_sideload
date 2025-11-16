@@ -1,3 +1,12 @@
+from utils.usage_accounting import get_round_cost, get_current_month_total
+
+# Helper to remove vowels for compact output
+
+def remove_vowels(s: str) -> str:
+    vowels = set("aeiouAEIOU")
+    return "".join(ch for ch in s if ch not in vowels)
+
+
 def build_diag_info(retries_taken: int, scores: dict, models_used: set, request_type: str, style_iterations: int) -> dict:
     """Builds the diagnostic dictionary from its components."""
     return {
@@ -7,6 +16,7 @@ def build_diag_info(retries_taken: int, scores: dict, models_used: set, request_
         "request_type": request_type,
         "style_iterations": style_iterations,
     }
+
 
 def format_diag_info(diag_info: dict) -> str:
     """Formats the diagnostic dictionary into a user-facing string."""
@@ -27,13 +37,27 @@ def format_diag_info(diag_info: dict) -> str:
     else:
         models_str = "N/A"
             
+    # Abbreviated labels (keep them without vowels, as they will be removed for compactness)
     diag_parts = [
-        f"type:{request_type}",
-        f"quality_retries:{retries}",
-        f"style_iter:{style_iterations}",
-        f"sys_msg_compl:{sys_compl}",
-        f"self:{self_desc}",
-        f"models:{models_str}"
+        f"t:{request_type}",            # type
+        f"qr:{retries}",               # quality_retries
+        f"st:{style_iterations}",      # style_iter
+        f"smc:{sys_compl}",            # sys_msg_compl
+        f"slf:{self_desc}",            # self
+        f"m:{models_str}",             # models
     ]
     
-    return f"[{'; '.join(diag_parts)}]"
+    # Usage accounting (always available; non-OpenRouter rounds will just be zeros)
+    rc_val = get_round_cost()
+    mc_val = get_current_month_total()
+    diag_parts.append(f"rc:{round(rc_val, 1)}")
+    diag_parts.append(f"mc:{int(round(mc_val, 0))}")
+    
+    # Remove spaces between entries by joining with ';' and then remove vowels for compactness
+    compact = f"[{';'.join(diag_parts)}]"
+    compact = remove_vowels(compact)
+
+    # also remove "-" to shorten model names
+    compact = compact.replace("-", "")
+
+    return compact

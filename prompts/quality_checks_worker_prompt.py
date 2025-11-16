@@ -33,6 +33,8 @@ def construct_prompt(
             10 - Perfect.
             
             Only rare exceptionally good answers deserve the 10. If you're thinking about assigning 10, double-check that the answer fully passes the high standards of yours. 
+            You are a strict and meticulous judge of quality. We are striving for perfection here. For every minor or major issue with the answer, take away at least one point. 
+
 
             A few tips for evaluating sys_message_compliance:
             - Split the system message into logical parts, and check each against the original answer.
@@ -41,6 +43,14 @@ def construct_prompt(
 
             We need an objective and honest assessment. Remember the stakes.  
             It's not enough for the answer to be recognizable as coming from the persona. We must critically evaluate it, detect all imperfections.
+
+            Evaluate the adherence to every part of the system message. 
+
+            <useful heuristics>
+            - Does it combine answers to several messages / different people? This is a severe violation of the system message, minus 5 points.
+            - Is it answering to an old message? (the answer should always be to the LAST message of the conversation). A severe sys msg violation, minus 5 points.
+            - You can ignore issues in the answer parts that are not facing the user (e.g. the '{CHAIN_OF_THOUGHT_TAG}' part).
+            </useful heuristics>
 
             Note: focus on the user-facing part of the answer (the one between '{ANSWER_TO_USER_TAG}' tags).
             If other parts (e.g. the '{CHAIN_OF_THOUGHT_TAG}') have formatting issues etc, you can ignore them.
