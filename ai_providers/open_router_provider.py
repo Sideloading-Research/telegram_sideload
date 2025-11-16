@@ -1,8 +1,10 @@
 import os
 from openai import OpenAI
 import requests
-from config import MODELS_TO_ATTEMPT, DEFAULT_MAX_TOKENS
+from config import MODELS_TO_ATTEMPT, DEFAULT_MAX_TOKENS, EXPENSIVE_SMART_MODELS
 from utils.tokens import count_tokens
+from utils.usage_accounting import add_cost  # NEW: aggregate per-round cost
+from utils.usage_accounting import is_genius_mode7  # NEW: round-scoped GENIUS mode flag
 
 client = OpenAI(
   base_url="https://openrouter.ai/api/v1",
@@ -35,6 +37,42 @@ def calculate_total_tokens_in_messages(messages):
                     total_tokens += count_tokens(content_part.get("text", ""))
     return total_tokens
 
+# Add simple usage printing helper
+
+def _get_from(obj, key, default=None):
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def print_openrouter_usage(completion):
+    usage = getattr(completion, "usage", None)
+    if usage is None:
+        print("Usage info not available from OpenRouter.")
+        return
+
+    cost = _get_from(usage, "cost", None)
+    total_tokens = _get_from(usage, "total_tokens", None)
+    prompt_tokens = _get_from(usage, "prompt_tokens", None)
+    completion_tokens = _get_from(usage, "completion_tokens", None)
+
+    print("OpenRouter Usage:")
+    if cost is not None:
+        print(f"  Cost: {cost} credits")
+    if total_tokens is not None:
+        print(f"  Total Tokens: {total_tokens}")
+    if prompt_tokens is not None:
+        print(f"  Prompt Tokens: {prompt_tokens}")
+    if completion_tokens is not None:
+        print(f"  Completion Tokens: {completion_tokens}")
+
+    # Add to per-round aggregator
+    try:
+        add_cost(cost)
+    except Exception:
+        # Be resilient to aggregator issues
+        pass
+
 
 def ask_open_router(messages, max_tokens=DEFAULT_MAX_TOKENS):
     """
@@ -47,7 +85,17 @@ def ask_open_router(messages, max_tokens=DEFAULT_MAX_TOKENS):
     Returns:
         A tuple containing the answer content (str) and the model used (str), or (None, None) on failure.
     """
-    model_chunks = [MODELS_TO_ATTEMPT[i:i + 4] for i in range(0, len(MODELS_TO_ATTEMPT), 4)]
+    # Build effective model list for this call (no global mutation)
+    effective_models = list(MODELS_TO_ATTEMPT)
+    if is_genius_mode7():
+        print("GENIUS mode active: prioritizing expensive models for this round")
+        # Replace first two entries if available
+        if len(EXPENSIVE_SMART_MODELS) > 0:
+            effective_models[0] = EXPENSIVE_SMART_MODELS[0]
+        if len(EXPENSIVE_SMART_MODELS) > 1 and len(effective_models) > 1:
+            effective_models[1] = EXPENSIVE_SMART_MODELS[1]
+
+    model_chunks = [effective_models[i:i + 4] for i in range(0, len(effective_models), 4)]
 
     for chunk in model_chunks:
         primary_model = chunk[0]
@@ -78,8 +126,15 @@ def ask_open_router(messages, max_tokens=DEFAULT_MAX_TOKENS):
                 model=primary_model,
                 messages=messages,
                 max_tokens=max_tokens,
-                extra_body={"models": fallback_models}
+                extra_body={
+                    "models": fallback_models,
+                    # Enable OpenRouter usage accounting
+                    "usage": {"include": True},
+                }
             )
+            
+            # Print usage/cost info after the call and aggregate cost
+            print_openrouter_usage(completion)
             
             response_content = completion.choices[0].message.content
             model_used = completion.model
