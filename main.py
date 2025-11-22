@@ -220,6 +220,76 @@ def is_allowed(update: Update) -> bool:
     return APPLICATION_LOGIC.check_authorization(chat_type, user_id, chat_id)
 
 
+# Plugin Management Commands
+async def plugins_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show the status of all plugins."""
+    if not is_allowed(update):
+        await restrict(update, context)
+        return
+    
+    status = APPLICATION_LOGIC.get_plugin_status()
+    message = "**Plugin Status:**\n\n"
+    for plugin_name, enabled in status.items():
+        status_emoji = "✅" if enabled else "❌"
+        message += f"{status_emoji} `{plugin_name}`: {'Enabled' if enabled else 'Disabled'}\n"
+    
+    await reply_text_wrapper(update, context, message, parse_mode="Markdown")
+
+
+async def enable_plugin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Enable a specific plugin."""
+    if not is_allowed(update):
+        await restrict(update, context)
+        return
+    
+    if not context.args:
+        await reply_text_wrapper(update, context, "Usage: /enable_plugin <plugin_name>")
+        return
+    
+    plugin_name = context.args[0]
+    if APPLICATION_LOGIC.enable_plugin(plugin_name):
+        await reply_text_wrapper(update, context, f"✅ Plugin `{plugin_name}` enabled.", parse_mode="Markdown")
+    else:
+        await reply_text_wrapper(update, context, f"❌ Plugin `{plugin_name}` not found.", parse_mode="Markdown")
+
+
+async def disable_plugin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Disable a specific plugin."""
+    if not is_allowed(update):
+        await restrict(update, context)
+        return
+    
+    if not context.args:
+        await reply_text_wrapper(update, context, "Usage: /disable_plugin <plugin_name>")
+        return
+    
+    plugin_name = context.args[0]
+    if APPLICATION_LOGIC.disable_plugin(plugin_name):
+        await reply_text_wrapper(update, context, f"❌ Plugin `{plugin_name}` disabled.", parse_mode="Markdown")
+    else:
+        await reply_text_wrapper(update, context, f"❌ Plugin `{plugin_name}` not found.", parse_mode="Markdown")
+
+
+async def enable_all_plugins_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Enable all plugins."""
+    if not is_allowed(update):
+        await restrict(update, context)
+        return
+    
+    APPLICATION_LOGIC.enable_all_plugins()
+    await reply_text_wrapper(update, context, "✅ All plugins enabled.")
+
+
+async def disable_all_plugins_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Disable all plugins."""
+    if not is_allowed(update):
+        await restrict(update, context)
+        return
+    
+    APPLICATION_LOGIC.disable_all_plugins()
+    await reply_text_wrapper(update, context, "❌ All plugins disabled.")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     print("\nDEBUG MESSAGE INFO:")
     
@@ -437,7 +507,15 @@ def main():
     app.add_handler(restrict_handler, group=-1) 
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("ask", handle_group_command)) 
+    app.add_handler(CommandHandler("ask", handle_group_command))
+    
+    # Plugin management commands
+    app.add_handler(CommandHandler("plugins", plugins_status))
+    app.add_handler(CommandHandler("enable_plugin", enable_plugin_cmd))
+    app.add_handler(CommandHandler("disable_plugin", disable_plugin_cmd))
+    app.add_handler(CommandHandler("enable_all_plugins", enable_all_plugins_cmd))
+    app.add_handler(CommandHandler("disable_all_plugins", disable_all_plugins_cmd))
+    
     app.add_handler(CallbackQueryHandler(start_game_callback, pattern="^start_game$"))
     
     allowed_message_content_filter = (filters.TEXT | filters.CAPTION) & ~filters.COMMAND
