@@ -1,3 +1,6 @@
+import os
+import sys
+import importlib.util
 from conversation_manager import ConversationManager
 from ai_service import get_ai_response # No longer need update_provider_from_user_input directly here
 from utils.answer_modifications import modify_answer_before_sending_to_telegram
@@ -9,6 +12,46 @@ from config import (
 from telegram.constants import ChatType # ADDED - for explicit comparison
 from workers.integration_worker import IntegrationWorker
 from utils.diag_utils import format_diag_info
+from plugins import config_plugins
+
+# Dynamic Plugin Loading
+PLUGINS = []
+PLUGINS_DIR = os.path.join(os.path.dirname(__file__), "plugins")
+
+def load_plugins():
+    """Dynamically load all enabled plugins from the plugins directory."""
+    global PLUGINS
+    PLUGINS = []
+    if not os.path.exists(PLUGINS_DIR):
+        print(f"Plugins directory not found: {PLUGINS_DIR}")
+        return
+
+    for plugin_name in os.listdir(PLUGINS_DIR):
+        plugin_path = os.path.join(PLUGINS_DIR, plugin_name)
+        if os.path.isdir(plugin_path):
+            # Check if plugin is enabled in config
+            if not config_plugins.is_plugin_enabled(plugin_name):
+                print(f"Plugin {plugin_name} is disabled in config.")
+                continue
+                
+            main_py = os.path.join(plugin_path, "main.py")
+            if os.path.exists(main_py):
+                try:
+                    spec = importlib.util.spec_from_file_location(f"plugins.{plugin_name}", main_py)
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[f"plugins.{plugin_name}"] = module
+                    spec.loader.exec_module(module)
+                    
+                    if hasattr(module, "is_plugin_applicable") and hasattr(module, "process_messages"):
+                        PLUGINS.append(module)
+                        print(f"Loaded plugin: {plugin_name}")
+                    else:
+                        print(f"Plugin {plugin_name} missing required functions.")
+                except Exception as e:
+                    print(f"Error loading plugin {plugin_name}: {e}")
+
+# Load plugins at module initialization
+load_plugins()
 
 
 def _get_effective_username(user_id: int, username: str = None, first_name: str = None, last_name: str = None) -> str:
@@ -29,6 +72,7 @@ class AppLogic:
         self.conversation_manager = conversation_manager
         self.allowed_user_ids = allowed_user_ids
         self.allowed_group_ids = allowed_group_ids
+        self.current_provider = None  # Track current AI provider for plugins
         # ai_service is not stored as it's stateless for now, get_ai_response is called directly.
         # mind_manager is managed by conversation_manager for initial prompts.
 
@@ -119,6 +163,26 @@ class AppLogic:
         # Proceed with AI response generation
         messages_history = self.conversation_manager.get_conversation_messages(conversation_key)
         
+        # Plugin processing - preprocess messages before sending to AI
+        plugin_processed = False
+        current_provider = self.current_provider or "openai"  # Default provider
+        
+        for plugin in PLUGINS:
+            try:
+                if plugin.is_plugin_applicable(messages_history, current_provider):
+                    plugin_name = plugin.__name__.split('.')[-1]
+                    print(f"Plugin {plugin_name} triggered.")
+                    
+                    # Process messages through plugin
+                    updated_messages = plugin.process_messages(messages_history, current_provider)
+                    if updated_messages:
+                        messages_history = updated_messages
+                        plugin_processed = True
+                        print(f"Messages processed by plugin: {plugin_name}")
+                        break  # Only first applicable plugin processes
+            except Exception as e:
+                print(f"Error executing plugin {plugin.__name__}: {e}")
+        
         final_ai_answer, provider_report, diag_info = self._generate_and_verify_answer(messages_history, raw_user_message)
         
         self.conversation_manager.add_assistant_message(conversation_key, final_ai_answer)
@@ -131,4 +195,33 @@ class AppLogic:
             diag_str = format_diag_info(diag_info)
             final_answer += f"\n\n{diag_str}"
         
-        return final_answer, provider_report 
+        return final_answer, provider_report
+    
+    # Plugin Management Methods
+    def get_plugin_status(self) -> dict:
+        """Get the current status of all plugins."""
+        return config_plugins.get_plugin_status()
+    
+    def enable_plugin(self, plugin_name: str) -> bool:
+        """Enable a specific plugin and reload plugins."""
+        if config_plugins.enable_plugin(plugin_name):
+            load_plugins()
+            return True
+        return False
+    
+    def disable_plugin(self, plugin_name: str) -> bool:
+        """Disable a specific plugin and reload plugins."""
+        if config_plugins.disable_plugin(plugin_name):
+            load_plugins()
+            return True
+        return False
+    
+    def enable_all_plugins(self) -> None:
+        """Enable all plugins and reload."""
+        config_plugins.enable_all_plugins()
+        load_plugins()
+    
+    def disable_all_plugins(self) -> None:
+        """Disable all plugins and reload."""
+        config_plugins.disable_all_plugins()
+        load_plugins() 

@@ -5,6 +5,7 @@ Chat with your AI sideload in Telegram. This bot fetches a "mindfile" from a Git
 ## Key Features
 
 -   **Modular Worker Architecture**: The bot uses a pipeline of workers, starting with a `DoormanWorker` to classify requests. An `IntegrationWorker` then polls multiple `DataWorker` instances in parallel, synthesizes their answers, and passes the result through `Style` and `QualityChecks` workers.
+-   **Plugin System**: Extensible plugin architecture for preprocessing messages, validating multimodal content, and transforming user input before it reaches the AI pipeline. See [Plugin Documentation](plugins/README.md) for details.
 -   **Multi-Provider Support via OpenRouter**: The bot leverages OpenRouter to access a wide range of models from different providers (Google, Anthropic, OpenAI, etc.). It uses a cascading fallback mechanism to ensure high availability.
 -   **Quality Control**: Responses are automatically checked for quality, with a built-in retry mechanism to meet desired standards.
 -   **Dynamic Mindfile**: The bot automatically pulls and updates its mindfile from a specified GitHub repository.
@@ -176,6 +177,33 @@ The bot's behavior can be further customized through `config.py`.
 
 -   **Private Chat**: Simply send a message to the bot.
 -   **Group Chat**: Mention the bot, reply to one of its messages, or use a trigger word (if configured).
+
+## Plugin System
+
+The bot includes a powerful plugin system that preprocesses messages before they reach the AI pipeline. Plugins can validate content, transform messages, and enhance functionality.
+
+### Available Plugins
+
+- **📺 summarize_youtube_video**: Automatically fetches and summarizes YouTube video transcripts
+- **🌐 web_reader**: Scrapes and summarizes web page content
+- **🎬 watch_video**: Validates video upload compatibility with AI providers
+- **🖼️ watch_picture**: Validates image upload compatibility with AI providers
+- **🎵 listen_audio**: Validates audio upload compatibility with AI providers
+- **🎨 generate_picture**: Validates image generation requests
+
+### Plugin Management Commands
+
+Control plugins directly from Telegram:
+
+- `/plugins` - Show status of all plugins
+- `/enable_plugin <name>` - Enable a specific plugin
+- `/disable_plugin <name>` - Disable a specific plugin
+- `/enable_all_plugins` - Enable all plugins
+- `/disable_all_plugins` - Disable all plugins (useful for cost savings)
+
+### Plugin Documentation
+
+For detailed information about the plugin system, including how to create custom plugins, see the [Plugin System Documentation](plugins/README.md).
  
 # Working with large mindfiles
 

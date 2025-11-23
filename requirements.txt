@@ -5,3 +5,7 @@ google-genai==1.5.0 # the Google GenAI API
 ollama==0.6.0 # for local LLM
 Pillow==11.0.0 # for processing images
 requests==2.32.3 # for making HTTP requests
+
+# Plugin dependencies
+youtube-transcript-api>=0.6.0
+beautifulsoup4>=4.12.0
