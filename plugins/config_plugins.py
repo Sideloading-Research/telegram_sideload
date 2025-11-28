@@ -13,6 +13,7 @@ PLUGIN_STATUS = {
     "watch_picture": True,
     "listen_audio": True,
     "generate_picture": True,
+    "reaction_tracker": True,  # Tracks message reactions for learning from user feedback
 }
 
 def is_plugin_enabled(plugin_name):
