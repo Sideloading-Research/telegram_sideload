@@ -12,3 +12,4 @@ expendable_shrinked.txt
 TEMP_DATA/
 apps/automatic_interviewer/RESULT/
 apps/automatic_interviewer/comparison_report.txt
+.env

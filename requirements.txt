@@ -1,10 +1,11 @@
-python-telegram-bot==22.0 # for Telegram 
+python-telegram-bot==22.0 # for Telegram
 openai==1.55.3 # the OpenAI API
 anthropic==0.31.2 # the Anthropic API
 google-genai==1.5.0 # the Google GenAI API
 ollama==0.6.0 # for local LLM
 Pillow==11.0.0 # for processing images
 requests==2.32.3 # for making HTTP requests
+python-dotenv==1.0.0 # for loading .env files
 
 # Plugin dependencies
 youtube-transcript-api>=0.6.0
