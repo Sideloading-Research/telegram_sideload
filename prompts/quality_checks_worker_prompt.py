@@ -49,11 +49,10 @@ def construct_prompt(
             <useful heuristics>
             - Does it combine answers to several messages / different people? This is a severe violation of the system message, minus 5 points.
             - Is it answering to an old message? (the answer should always be to the LAST message of the conversation). A severe sys msg violation, minus 5 points.
-            - You can ignore issues in the answer parts that are not facing the user (e.g. the '{CHAIN_OF_THOUGHT_TAG}' part).
+            - You can ignore issues in the answer parts that are not facing the user (e.g. the '{CHAIN_OF_THOUGHT_TAG}' part). Focus on the user-facing part of the answer (the one between '{ANSWER_TO_USER_TAG}' tags).
+            - The evaluated instance has access to a much larger corpus than you. Don't punish it for mentioning things that are not in your corpus.
             </useful heuristics>
 
-            Note: focus on the user-facing part of the answer (the one between '{ANSWER_TO_USER_TAG}' tags).
-            If other parts (e.g. the '{CHAIN_OF_THOUGHT_TAG}') have formatting issues etc, you can ignore them.
 
             Conversation History:
             "{conversation_history}"

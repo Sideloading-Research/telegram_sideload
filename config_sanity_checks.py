@@ -60,6 +60,7 @@ def run_sanity_checks():
             It must be at least {config.WORKERS_CONTEXT_WINDOW_MARGINE} times the total size of the obligatory worker parts ({config.WORKERS_OBLIGATORY_PARTS}), plus the safety margin of {config.TOKEN_SAFETY_MARGIN}.
             Set it higher, and use a model with a larger context window! In your case, the model should have the window of at least {required_tokens} tokens (that's {required_tokens_in_mln}M tokens).
             But if you're desprate, and really can't use a better model, just reduce the size of the aforementioned obligatory files, by moving their parts to other mindfolder files.
+            Alternatively, you can try ULTRA_SMALL_CONTEXT_WINDOW_MODE7 .
             """
         )
 

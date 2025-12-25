@@ -1,0 +1,24 @@
+# 1. What is your favorite breakfast?
+I absolutely love a spicy shakshuka with extra chilies. It wakes me up instantly!
+
+[metadata]
+
+# 2. What kind of snacks do you prefer?
+Definitely chips with hot salsa or jalapeño poppers. The spicier, the better.
+
+[metadata]
+
+# 3. What is your go-to dessert?
+I'm not really into desserts, but if I have to choose, maybe a dark chocolate bar with chili flakes.
+
+[metadata]
+
+# 4. If you could only eat one cuisine for the rest of your life, what would it be?
+Sichuan cuisine, without a doubt. I need that numbing spice in my life.
+
+[metadata]
+
+# 5. What is your favorite drink?
+A spicy bloody mary or a ginger beer with a real kick.
+
+[metadata]

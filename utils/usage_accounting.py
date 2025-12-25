@@ -3,12 +3,17 @@
 
 import os
 from datetime import datetime
+from config import PROJECT_ROOT
 
 _total_cost_for_round = 0.0
 is_tracking7 = False  # boolean naming convention per user preference
 
 # --- Round-scoped GENIUS mode flag ---
 GENIUS_MODE_ROUND_FLAG7 = False
+# --- Round-scoped Fixed Model Override ---
+FIXED_MODEL_ROUND_OVERRIDE: str | None = None
+# --- Round-scoped Quality Retries Override ---
+QUALITY_RETRIES_ROUND_OVERRIDE: int | None = None
 
 
 def set_genius_mode7(value: bool) -> None:
@@ -28,7 +33,58 @@ def clear_genius_mode7() -> None:
     GENIUS_MODE_ROUND_FLAG7 = False
 
 
-_COSTS_DIR = os.path.join("TEMP_DATA", "COSTS")
+def set_fixed_model_for_round(model_name: str) -> None:
+    """Force a specific model to be used for the current round."""
+    global FIXED_MODEL_ROUND_OVERRIDE
+    FIXED_MODEL_ROUND_OVERRIDE = model_name
+
+
+def get_fixed_model_for_round() -> str | None:
+    """Return the forced model name if set."""
+    return FIXED_MODEL_ROUND_OVERRIDE
+
+
+def clear_fixed_model_for_round() -> None:
+    """Clear the fixed model override."""
+    global FIXED_MODEL_ROUND_OVERRIDE
+    FIXED_MODEL_ROUND_OVERRIDE = None
+
+
+def set_quality_retries_for_round(retries: int) -> None:
+    """Override the number of quality retries for the current round."""
+    global QUALITY_RETRIES_ROUND_OVERRIDE
+    QUALITY_RETRIES_ROUND_OVERRIDE = int(retries)
+
+
+def get_quality_retries_for_round() -> int | None:
+    """Return the quality retries override if set."""
+    return QUALITY_RETRIES_ROUND_OVERRIDE
+
+
+def clear_quality_retries_for_round() -> None:
+    """Clear the quality retries override."""
+    global QUALITY_RETRIES_ROUND_OVERRIDE
+    QUALITY_RETRIES_ROUND_OVERRIDE = None
+
+
+def set_quality_retries_for_round(retries: int) -> None:
+    """Override the number of quality retries for the current round."""
+    global QUALITY_RETRIES_ROUND_OVERRIDE
+    QUALITY_RETRIES_ROUND_OVERRIDE = int(retries)
+
+
+def get_quality_retries_for_round() -> int | None:
+    """Return the quality retries override if set."""
+    return QUALITY_RETRIES_ROUND_OVERRIDE
+
+
+def clear_quality_retries_for_round() -> None:
+    """Clear the quality retries override."""
+    global QUALITY_RETRIES_ROUND_OVERRIDE
+    QUALITY_RETRIES_ROUND_OVERRIDE = None
+
+
+_COSTS_DIR = os.path.join(PROJECT_ROOT, "TEMP_DATA", "COSTS")
 
 
 def _ensure_costs_dir():

@@ -4,6 +4,7 @@ from bot_config import (
     GLOBAL_PLATFORM_SPECIFIC_PROMPT_ADDITION
 )
 from utils.prompt_utils import format_user_info_prompt, build_initial_conversation_history
+from utils import chat_logger
 
 def _build_initial_assistant_messages(mind_manager: MindDataManager):
     """
@@ -30,16 +31,29 @@ def _build_initial_assistant_messages(mind_manager: MindDataManager):
     return build_initial_conversation_history(system_message=full_system_message, context=None)
 
 class Conversation:
-    def __init__(self, mind_manager: MindDataManager):
+    def __init__(self, mind_manager: MindDataManager, conversation_key: str):
         self.mind_manager = mind_manager
-        self.messages = _build_initial_assistant_messages(self.mind_manager)
+        self.conversation_key = conversation_key
         self.max_messages_num = get_max_messages_num()
+        self.messages = _build_initial_assistant_messages(self.mind_manager)
+        self._load_history_from_disk()
+
+    def _load_history_from_disk(self):
+        initial_messages_len = len(self.messages)
+        limit = self.max_messages_num - initial_messages_len
+        if limit <= 0:
+            limit = 0
+            
+        history = chat_logger.load_chat_history(self.conversation_key, limit=limit)
+        self.messages.extend(history)
 
     def add_user_message(self, content: str):
+        chat_logger.append_message(self.conversation_key, "user", content)
         self.messages.append({"role": "user", "content": content})
         self._trim_history()
 
     def add_assistant_message(self, content: str):
+        chat_logger.append_message(self.conversation_key, "assistant", content)
         self.messages.append({"role": "assistant", "content": content})
         self._trim_history()
 
@@ -47,6 +61,7 @@ class Conversation:
         return self.messages.copy() # Return a copy to prevent external modification
 
     def reset(self):
+        chat_logger.archive_chat_log(self.conversation_key)
         self.messages = _build_initial_assistant_messages(self.mind_manager)
 
     def _trim_history(self):
@@ -74,7 +89,7 @@ class ConversationManager:
 
     def get_or_create_conversation(self, conversation_key: str) -> Conversation:
         if conversation_key not in self._conversations:
-            self._conversations[conversation_key] = Conversation(self.mind_manager)
+            self._conversations[conversation_key] = Conversation(self.mind_manager, conversation_key)
         return self._conversations[conversation_key]
 
     def reset_conversation(self, conversation_key: str) -> bool:
@@ -99,45 +114,3 @@ class ConversationManager:
         if conversation_key in self._conversations:
             return len(self._conversations[conversation_key].get_messages())
         return 0
-
-# Example Usage (for testing or if this module were run directly)
-# if __name__ == '''__main__''':
-#     class MockMindManager:
-#         def get_current_data(self):
-#             return "System Prompt from Mock", "Initial Assistant context from Mock"
-
-#     mock_mm = MockMindManager()
-#     cm = ConversationManager(mind_manager=mock_mm)
-
-#     user1_key = "user123"
-#     conv1 = cm.get_or_create_conversation(user1_key)
-#     print(f"Initial messages for {user1_key}: {conv1.get_messages()}")
-
-#     cm.add_user_message(user1_key, "Hello there!")
-#     print(f"After user message for {user1_key}: {conv1.get_messages()}")
-#     cm.add_assistant_message(user1_key, "General Kenobi!")
-#     print(f"After assistant message for {user1_key}: {conv1.get_messages()}")
-
-#     cm.reset_conversation(user1_key)
-#     print(f"After reset for {user1_key}: {conv1.get_messages()}")
-
-#     # Test trimming
-#     # Override max_messages_num for testing (in a real scenario, this comes from config)
-#     conv1.max_messages_num = 5 # System, Assistant, User, Assistant, User (trim next)
-#     print(f"Set max messages to {conv1.max_messages_num} for {user1_key}")
-    
-#     # Rebuild initial messages as reset does this.
-#     # The _trim_history logic assumes initial messages are present.
-#     # The trim function now rebuilds initial_messages correctly
-    
-#     cm.add_user_message(user1_key, "User Q1")
-#     cm.add_assistant_message(user1_key, "Assistant A1")
-#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages: {conv1.get_messages()}")
-#     cm.add_user_message(user1_key, "User Q2") # This should trigger a trim if MAX is 5 (sys, assist, q1, a1, q2)
-#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages after Q2 for {user1_key}: {conv1.get_messages()}")
-#     cm.add_assistant_message(user1_key, "Assistant A2")
-#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages after A2 for {user1_key}: {conv1.get_messages()}")
-#     cm.add_user_message(user1_key, "User Q3")
-#     print(f"Len: {cm.get_conversation_length(user1_key)}, Messages after Q3 for {user1_key}: {conv1.get_messages()}")
-
-#     # Expected: System, Assistant, Q2, A2, Q3 (if max is 5 and includes 2 initial) 

@@ -141,6 +141,10 @@ python3 main.py
 
 For long-running sessions, it's recommended to use a terminal multiplexer like `tmux`.
 
+#### Production Deployment with systemd
+
+For production deployments where the bot should start automatically on system boot and restart automatically if it crashes, set up the bot as a systemd service. See the [systemd setup guide](docs/systemd_stuff/how_to_auto_restart.md) for detailed instructions.
+
 ### Local Sideload Setup
 
 For instructions on advanced local setups, such as using a local mindfile or a local AI provider, see the [local run guide](docs/local_run.md).
@@ -148,6 +152,10 @@ For instructions on advanced local setups, such as using a local mindfile or a l
 ### Admin Commands
 
 For details on available admin commands for development and testing, see the [admin commands guide](docs/admin_commands.md).
+
+### Security
+
+For information about flood protection, rate limiting, and jailbreak detection, see the [Security & Flood Protection](docs/flood_protection.md) guide.
 
 
 ## 6. Add the bot to your group

@@ -16,9 +16,11 @@ from app_logic import AppLogic
 from telegram.constants import ChatType, MessageEntityType, ChatAction
 from telegram.error import TelegramError, BadRequest, TimedOut, NetworkError, RetryAfter
 
-from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7
+from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7, RATE_LIMIT_EXCEEDED_MESSAGE
 from config_sanity_checks import run_sanity_checks
 import config
+from utils.rate_limiter import is_global_rate_limited
+from utils.constants import c
 
 # Initialize managers and services
 # These are global instances for the bot's lifecycle.
@@ -323,12 +325,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # user_message_text remains "<unsupported message type>"
 
     # admin commands
-    if user_message_text == "admin:test":
+    if user_message_text == c.test_mode_command:
         config.set_data_source_mode("QUICK_TEST")
         MIND_MANAGER.force_refresh()
         await reply_text_wrapper(update, context, "quick test mode activated")
         return
-    if user_message_text == "admin:norm":
+    if user_message_text == c.normal_mode_command:
         config.set_data_source_mode("NORMAL")
         MIND_MANAGER.force_refresh()
         await reply_text_wrapper(update, context, "normal mode activated")
@@ -337,6 +339,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     print(f"Chat ID: {update.effective_chat.id}")
     
     if is_allowed(update):
+        is_limited, should_warn = is_global_rate_limited()
+        if is_limited:
+            if should_warn:
+                print(f"Rate limit exceeded. Blocking request from {update.effective_user.id} and sending warning.")
+                await reply_text_wrapper(update, context, RATE_LIMIT_EXCEEDED_MESSAGE)
+            else:
+                print(f"Rate limit exceeded. Silently blocking request from {update.effective_user.id}.")
+            return
+
         typing_task = asyncio.create_task(
             send_typing_periodically(context, update.effective_chat.id)
         )
@@ -406,7 +417,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
             print(f"Decision for chat {chat_id} (type: {chat_type}): Generate AI reply in AppLogic? {generate_ai_reply_for_app_logic}. Bot should send reply if available? {bot_should_always_reply_in_group if chat_type != ChatType.PRIVATE else True}")
 
-            answer, provider_report = await asyncio.to_thread(
+            answer, provider_report, _ = await asyncio.to_thread(
                 APPLICATION_LOGIC.process_user_request,
                 user_id=user_id,
                 raw_user_message=user_message_text,
@@ -446,6 +457,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if is_allowed(update):
+        is_limited, should_warn = is_global_rate_limited()
+        if is_limited:
+            if should_warn:
+                print(f"Rate limit exceeded. Blocking request from {update.effective_user.id} and sending warning.")
+                await reply_text_wrapper(update, context, RATE_LIMIT_EXCEEDED_MESSAGE)
+            else:
+                print(f"Rate limit exceeded. Silently blocking request from {update.effective_user.id}.")
+            return
+
         typing_task = asyncio.create_task(
             send_typing_periodically(context, update.effective_chat.id)
         )
@@ -464,7 +484,7 @@ async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
             first_name = update.effective_user.first_name
             last_name = update.effective_user.last_name
 
-            answer, provider_report = await asyncio.to_thread(
+            answer, provider_report, _ = await asyncio.to_thread(
                 APPLICATION_LOGIC.process_user_request,
                 user_id=user_id,
                 raw_user_message=user_input, 

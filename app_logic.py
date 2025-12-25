@@ -105,6 +105,8 @@ class AppLogic:
 
     def check_authorization(self, chat_type: str, user_id: int, chat_id: int) -> bool:
         """Checks if the user or chat is authorized based on type and IDs."""
+        if chat_type == "API":
+            return True
         if chat_type == ChatType.PRIVATE: # Using ChatType constant
             return user_id in self.allowed_user_ids
         elif chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]: # Using ChatType constants
@@ -119,14 +121,14 @@ class AppLogic:
                              generate_ai_reply: bool,   # ADDED
                              username: str = None, 
                              first_name: str = None, 
-                             last_name: str = None) -> tuple[str | None, str | None]: # Modified return type
+                             last_name: str = None) -> tuple[str | None, str | None, dict]: # Modified return type
         """
         Processes the user's request. Adds user message to history.
         If generate_ai_reply is True, calls AI, adds AI response to history, and returns answer.
-        Otherwise, returns (None, None).
+        Otherwise, returns (None, None, {}).
         
         Returns:
-            tuple[str | None, str | None]: (answer_to_send, provider_report_message_or_none)
+            tuple[str | None, str | None, dict]: (answer_to_send, provider_report_message_or_none, diag_info)
         """
         # Determine the conversation key based on chat type and config
         if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP] and BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7:
@@ -136,6 +138,8 @@ class AppLogic:
             conversation_key = str(user_id)
             if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
                  print(f"Using USER_ID ({user_id}) as conversation key for group chat (BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 is False).")
+            elif chat_type == "API":
+                 print(f"Using USER_ID ({user_id}) as conversation key for API request.")
             else:
                  print(f"Using USER_ID ({user_id}) as conversation key for private chat.")
 
@@ -146,9 +150,9 @@ class AppLogic:
         if raw_user_message.lower() == c.reset_dialog_command:
             if self.conversation_manager.reset_conversation(conversation_key):
                 # Reset commands always provide a direct response, not from AI.
-                return "Dialog has been reset.", None
+                return "Dialog has been reset.", None, {}
             else:
-                return "No active dialog to reset. Starting a new one now.", None
+                return "No active dialog to reset. Starting a new one now.", None, {}
 
         formatted_user_message = f"{effective_username} wrote: {raw_user_message}"
         
@@ -158,7 +162,9 @@ class AppLogic:
 
         if not generate_ai_reply:
             print(f"AI reply generation skipped for key {conversation_key} as per request.")
-            return None, None
+            return None, None, {}
+
+        # Proceed with AI response generation
 
         # Proceed with AI response generation
         messages_history = self.conversation_manager.get_conversation_messages(conversation_key)
@@ -184,18 +190,19 @@ class AppLogic:
                 print(f"Error executing plugin {plugin.__name__}: {e}")
         
         final_ai_answer, provider_report, diag_info = self._generate_and_verify_answer(messages_history, raw_user_message)
-        
-        self.conversation_manager.add_assistant_message(conversation_key, final_ai_answer)
-        
-        print(f"Current conversation length for key {conversation_key}: {self.conversation_manager.get_conversation_length(conversation_key)}")
 
         final_answer = modify_answer_before_sending_to_telegram(final_ai_answer)
+
+        # Save only the user-facing answer to conversation history (not the full AI response with chain of thought)
+        self.conversation_manager.add_assistant_message(conversation_key, final_answer)
+
+        print(f"Current conversation length for key {conversation_key}: {self.conversation_manager.get_conversation_length(conversation_key)}")
 
         if SHOW_DIAG_INFO7:
             diag_str = format_diag_info(diag_info)
             final_answer += f"\n\n{diag_str}"
         
-        return final_answer, provider_report
+        return final_answer, provider_report, diag_info
     
     # Plugin Management Methods
     def get_plugin_status(self) -> dict:
