@@ -1,0 +1,30 @@
+[Unit]
+Description=Telegram Sideload Bot
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=sideload
+Group=sideload
+WorkingDirectory=/home/sideload_stuff/telegram_sideload
+Environment="PATH=/home/sideload_stuff/telegram_sideload/venv/bin:/usr/bin:/usr/local/bin"
+ExecStart=/home/sideload_stuff/telegram_sideload/venv/bin/python /home/sideload_stuff/telegram_sideload/main.py
+
+# Restart conditions
+RestartPreventExitStatus=0
+SuccessExitStatus=0
+
+# Logging
+StandardOutput=append:/var/log/telegram-sideload.log
+StandardError=append:/var/log/telegram-sideload-error.log
+
+# Optional: Resource limits (uncomment if needed)
+# MemoryLimit=1G
+# CPUQuota=75%
+
+[Install]
+WantedBy=multi-user.target

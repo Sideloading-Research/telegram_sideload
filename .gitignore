@@ -10,3 +10,5 @@ context_for_debug.txt
 expendable_shrinked.txt
 .telegram_sideload_cache/
 TEMP_DATA/
+apps/automatic_interviewer/RESULT/
+apps/automatic_interviewer/comparison_report.txt

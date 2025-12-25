@@ -1,0 +1,24 @@
+# 1. What is your favorite breakfast?
+I prefer sweet pancakes with maple syrup and whipped cream. It's a comforting start to the day.
+
+[metadata]
+
+# 2. What kind of snacks do you prefer?
+I love cookies, brownies, or just a simple chocolate bar. Anything sweet makes me happy.
+
+[metadata]
+
+# 3. What is your go-to dessert?
+Tiramisu or a rich cheesecake. I have a huge sweet tooth!
+
+[metadata]
+
+# 4. If you could only eat one cuisine for the rest of your life, what would it be?
+French patisserie. I could live on croissants and éclairs forever.
+
+[metadata]
+
+# 5. What is your favorite drink?
+A vanilla latte or a fruity milkshake. Sweet drinks are the best.
+
+[metadata]

@@ -1,5 +1,10 @@
+import os
+
+# Project root directory (assumes config.py is in the root)
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 REPO_URL = "https://github.com/RomanPlusPlus/open-source-human-mind.git"
-DATASET_LOCAL_REPO_DIR_PATH = "./MINDFILE_FROM_GITHUB/full_dataset"
+DATASET_LOCAL_REPO_DIR_PATH = os.path.join(PROJECT_ROOT, "MINDFILE_FROM_GITHUB/full_dataset")
 DATASET_DIR_NAME_IN_REPO = "full_dataset"
 
 # if specified, this will take precedence over the online repo
@@ -84,24 +89,36 @@ For each chunk, the first model is treated as the primary model, and the other t
 The system will try the chunks in order until it gets a successful response.
 It's done this way because openRouter supports automatic model fallback,
 but supports assigning only 3 fallback models per request.
+If you update this list, don't forget to update MAX_TOKENS_ALLOWED_IN_REQUEST. 
+
+Note: for quick tests, this model is very cheap: qwen/qwen-turbo
 """
 MODELS_TO_ATTEMPT = [
-  "google/gemini-2.5-flash", # chunk 0 primary model
+  "google/gemini-3-flash-preview", # chunk 0 primary model
+  "google/gemini-3-flash-preview",
   "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
   "google/gemini-2.5-pro",
-  "x-ai/grok-4-fast", # chunk 1 primary model
+  "x-ai/grok-4.1-fast", # chunk 1 primary model
   "anthropic/claude-sonnet-4.5",
   "openai/gpt-4.1-mini",
   "meta-llama/llama-4-maverick",
   "qwen/qwen-plus-2025-07-28", # chunk 2 primary model
-  "minimax/minimax-01",
+  "minimax/minimax-m1",
 ]
 
 EXPENSIVE_SMART_MODELS = [
-    "google/gemini-2.5-pro",
+    "google/gemini-3-pro-preview"
     "anthropic/claude-sonnet-4.5",
+    "google/gemini-2.5-pro",
 ]
+
+"""
+If enabled, the sideload may use an expensive model for the hardest questions.
+Disable if you're testing a model, to avoid contaminating the results with 
+answers from another model.
+"""
+ENABLE_CONDITIONAL_GENIUS_MODE7 = True
+
 """
 Other models supported by openRouter with at least 1M contect length, 
 for reference (as of 2025-10-10):
@@ -151,8 +168,12 @@ MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN = 5 * MAX_TELEGRAM_MESSAGE_
 
 CHARS_PER_TOKEN = 1.7 # calculated from actual API response: 2,490,751 chars / 1,446,761 tokens
 
-# the de-facto context window size. Set it the same as in the LLM you use.
-MAX_TOKENS_ALLOWED_IN_REQUEST = 1000000 # got it from Google's error message
+"""
+The de-facto context window size. Set it the same as in the LLM you use.
+To avoid errors, set it to the smallest context window size of 
+the models in MODELS_TO_ATTEMPT and EXPENSIVE_SMART_MODELS.
+"""
+MAX_TOKENS_ALLOWED_IN_REQUEST = 1000000
 
 
 """
@@ -170,16 +191,12 @@ WORKERS_CONTEXT_WINDOW_MARGINE = 2
 # Safety margin for token limit calculations. Must be greater than 1.0.
 TOKEN_SAFETY_MARGIN = 1.3 # 1.3. is reasonable, works for both EN and RU if CHARS_PER_TOKEN = 1.7
 
-# How many times to retry if the quality check fails.
-ANSWER_QUALITY_RETRIES_NUM = 3
 
 # experimental feature: don't use it yet
 GLOBAL_ENABLE_USER_DEFINED_AI_PROVIDERS7 = False
 
 
 # --- Answer Quality Control ---
-# Number of retries for the answer quality check.
-ANSWER_QUALITY_RETRIES_NUM = 4
 
 # The minimum score (inclusive) on each quality scale for an answer to be accepted.
 MIN_ANSWER_QUALITY_SCORE = 9 # of 10
@@ -218,9 +235,17 @@ SOURCE_TAG_CLOSE = "</mindfile_source_file:"
 
 DESIGN_LINE = "=================================================="
 
+# --- Rate Limiting ---
+"""
+Excessive requests from Telegram will be answered with the automatic message,
+to avoid large costs in case of abuse.
+"""
+GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE = 2
+RATE_LIMIT_EXCEEDED_MESSAGE = "Dude, too many messages per minute... "
+
 # --- Dev tools ---
 
-QUICK_TEST_SIDELOAD = "tests/test_data/smaller_versions_of_dataset/300k"
+QUICK_TEST_SIDELOAD = os.path.join(PROJECT_ROOT, "tests/test_data/smaller_versions_of_dataset/300k")
 
 # Preserve the initial local override value to restore on NORMAL mode
 ORIGINAL_LOCAL_MINDFILE_DIR_PATH = LOCAL_MINDFILE_DIR_PATH
@@ -242,4 +267,4 @@ def set_data_source_mode(mode: str) -> None:
         DATA_SOURCE_MODE = "NORMAL"
         LOCAL_MINDFILE_DIR_PATH = ORIGINAL_LOCAL_MINDFILE_DIR_PATH
 
-# No sanity checks here. They are in config_sanity_checks.py 
+# No sanity checks here. They are in config_sanity_checks.py

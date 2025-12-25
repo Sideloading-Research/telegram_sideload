@@ -1,10 +1,10 @@
 import os
 from openai import OpenAI
 import requests
-from config import MODELS_TO_ATTEMPT, DEFAULT_MAX_TOKENS, EXPENSIVE_SMART_MODELS
+from config import MODELS_TO_ATTEMPT, DEFAULT_MAX_TOKENS, EXPENSIVE_SMART_MODELS, ENABLE_CONDITIONAL_GENIUS_MODE7
 from utils.tokens import count_tokens
 from utils.usage_accounting import add_cost  # NEW: aggregate per-round cost
-from utils.usage_accounting import is_genius_mode7  # NEW: round-scoped GENIUS mode flag
+from utils.usage_accounting import is_genius_mode7, get_fixed_model_for_round  # NEW: round-scoped flags
 
 client = OpenAI(
   base_url="https://openrouter.ai/api/v1",
@@ -87,7 +87,12 @@ def ask_open_router(messages, max_tokens=DEFAULT_MAX_TOKENS):
     """
     # Build effective model list for this call (no global mutation)
     effective_models = list(MODELS_TO_ATTEMPT)
-    if is_genius_mode7():
+    
+    forced_model = get_fixed_model_for_round()
+    if forced_model:
+        print(f"Forced model override active: {forced_model}")
+        effective_models = [forced_model]
+    elif is_genius_mode7() and ENABLE_CONDITIONAL_GENIUS_MODE7:
         print("GENIUS mode active: prioritizing expensive models for this round")
         # Replace first two entries if available
         if len(EXPENSIVE_SMART_MODELS) > 0:

@@ -7,13 +7,13 @@ Set a plugin to False to deactivate it and save on API costs.
 
 # Plugin activation status
 PLUGIN_STATUS = {
-    "summarize_youtube_video": True,
-    "web_reader": True,
-    "watch_video": True,
-    "watch_picture": True,
-    "listen_audio": True,
-    "generate_picture": True,
-    "reaction_tracker": True,  # Tracks message reactions for learning from user feedback
+    "summarize_youtube_video": False,
+    "web_reader": False,
+    "watch_video": False,
+    "watch_picture": False,
+    "listen_audio": False,
+    "generate_picture": False,
+    "reaction_tracker": False,  # Tracks message reactions for learning from user feedback
 }
 
 def is_plugin_enabled(plugin_name):

@@ -24,7 +24,13 @@ from prompts.integration_worker_prompt import construct_prompt as construct_inte
 from utils.diag_utils import build_diag_info
 from utils.usage_accounting import start_round, end_round_print  # NEW: per-round cost tracking
 from utils.usage_accounting import record_round_cost_to_disk, print_current_month_total  # NEW: disk and monthly total
-from utils.usage_accounting import set_genius_mode7, clear_genius_mode7  # NEW: round-scoped GENIUS mode flag
+from utils.usage_accounting import (
+    set_genius_mode7,
+    clear_genius_mode7,
+    clear_fixed_model_for_round,
+    get_quality_retries_for_round,
+    clear_quality_retries_for_round
+)
 
 
 class IntegrationWorker(BaseWorker):
@@ -354,7 +360,16 @@ class IntegrationWorker(BaseWorker):
         retries_taken = 0
         style_iterations_taken = 0
         
-        retries = ANSWER_QUALITY_RETRIES_NUM
+        
+        retries = get_quality_retries_for_round()
+        if retries is None:
+            retries = ANSWER_QUALITY_RETRIES_NUM
+        
+        # If user overrides to 0, they likely mean "no retries" (1 attempt).
+        # Existing logic treats 'retries' as 'max attempts' (loop range).
+        # So we ensure at least 1 attempt.
+        if retries < 1:
+            retries = 1
 
         for attempt in range(retries):
             print(f"\n--- Answer Generation Attempt {attempt + 1}/{retries} ---")
@@ -427,6 +442,8 @@ class IntegrationWorker(BaseWorker):
         end_round_print()
         # Clear GENIUS mode flag at the end of the round
         clear_genius_mode7()
+        clear_fixed_model_for_round()
+        clear_quality_retries_for_round()
         
         # Persist the round cost to disk and print month total
         record_round_cost_to_disk()

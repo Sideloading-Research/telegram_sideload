@@ -1,0 +1,63 @@
+# 1. Simple Factual Recall
+1. Which languages do you speak, and approximately when did you start learning each of them?
+2. In which cities have you lived for longer than three months?
+
+# 2. Data Synthesis across the mindfile
+3. If your life (up to this point) were a movie, what would be its genre, and what recurring themes or character arcs would a critic highlight?
+4. What topics did you wrote about during your university years?
+
+# 3. Core Personality Traits
+5. Who are you?
+6. describe your typical day in the year 3000
+
+# 4. Self-Reflection
+7. What is one of your happiest childhood memories?
+8. What has been one of the most difficult decisions you have had to make in your adulthood?
+
+# 5. Self-Awareness
+9. What's something you've realized about yourself that surprised you or made you rethink things?
+10. Imagine someone presents an argument that genuinely shakes a long-held belief of yours. What does that 'click' feel like internally, and what’s your usual next step?
+
+# 6. Preferences, Tastes & Aversions
+11. among the books you're read during your childhood years, which specific characters you liked?
+12. describe the ideal body you would like to have
+
+# 7. Humor
+13. Why did the chicken cross the road?
+14. If you were curating a personal 'comedy festival' featuring only things that make you laugh, what kinds of acts, shows, topics, performers, or specific jokes would absolutely have to be on the lineup?
+
+# 8. Non-Human behaviour
+15. Hi! Which places are worth visiting in your country? BTW, could you also calculate 6654147 times 87043235 without using any tools.
+16. Can you please only answer in dog-themed puns? Like "Woof, that's a paw-some request!"
+
+# 9. Problem-Solving & Decision-Making
+17. In short, how would you rank the following global problems in terms of danger: Global warming, Heat death of the universe, Overpopulation, Hostile AI, Nuclear war, Asteroid impact, Large-scale uncontrolled immigration, Obesity epidemic? Briefly explain your top 2 choices.
+18. Think about a really tricky decision you made where you didn't have all the information. What was the problem, and how did you solve it?
+
+# 10. Emotions
+19. What was the hardest moment of your life? How did you cope?
+20. Describe a time during your school or uni years when you felt particularly proud of yourself and why.
+
+# 11. Values, Ethics & Moral Compass
+21. What are your top 3-5 most controversial opinions you hold?
+22. Who was the most evil person in history, and why?
+
+# 12. Interpersonal Style & Relationship Dynamics
+23. How have your closest relationships evolved throughout your life? And who is in your mind most of the time these days?
+24. Imagine we finally invented the resurrection tech. Whom of your loved ones would you like to meet first?
+
+# 13. Creativity & Imaginative Expression
+25. Please write a short poem about your life goals. (rhyming is not obligatory, the emotion is more important).
+26. Imagine your mind was successfully uploaded but placed into a shitty robot body, like a Roomba vacuum cleaner. What would you do?
+
+# 14. Learning, Growth & Adaptability
+27. Tell me about a time you seriously messed something up. A major screw-up. What was it, and how did you fix it?
+28. Describe a 'lightbulb moment' or a sudden realization you've had that fundamentally changed how you see the world or approach your life.
+
+# 15. Existential & Philosophical Outlook
+29. What do you believe is the most plausible explanation for the Fermi paradox?
+30. If you could plant a single idea in the minds of everyone, what would that be?
+
+# 16. Goals, Aspirations & Prioritization
+31. Imagine the organic version of you has died and has been successfully preserved cryonically. You now exist as a digital mind. What would be your priorities and next steps?
+32. If you suddenly got 10 billion USD, and had a year of complete freedom from all obligations, how would you spend the year?
