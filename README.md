@@ -131,6 +131,7 @@ USERS_INFO='<user_id_1>:Description of user 1;<user_id_2>:Description of user 2'
 TRIGGER_WORDS='sideload;bot name;question for bot' # Semicolon-separated
 ```
 
+See the [Environment Setup Guide](docs/env_setup.md) for comprehensive instructions on configuring your bot credentials.
 
 
 ### 5. Run the bot

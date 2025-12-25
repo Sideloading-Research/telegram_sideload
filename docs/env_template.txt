@@ -1,0 +1,85 @@
+# Telegram Sideload Bot Configuration
+# Copy this file to .env and fill in your actual values
+# Remove the # from the beginning of lines you want to use
+
+# =============================================================================
+# REQUIRED CREDENTIALS (must be filled in)
+# =============================================================================
+
+# Telegram Bot Token - Get this from @BotFather on Telegram
+TELEGRAM_LLM_BOT_TOKEN=your_bot_token_here
+
+# Allowed User IDs - Comma-separated list of Telegram user IDs that can use the bot
+# Find user IDs with @userinfobot or similar bots
+ALLOWED_USER_IDS=user_id_1,user_id_2,user_id_3
+
+# Allowed Group IDs - Comma-separated list of Telegram group IDs where the bot is allowed
+# Use negative numbers for groups (e.g., -1001234567890)
+ALLOWED_GROUP_IDS=-group_id_1,-group_id_2
+
+# =============================================================================
+# AI PROVIDER SELECTION (Optional - defaults to config.py setting)
+# =============================================================================
+
+# Choose your AI provider: "openai", "anthropic", "google", "openrouter", or "ollama"
+# If not set, uses the default from config.py
+AI_PROVIDER=openrouter
+
+# =============================================================================
+# OPENROUTER CONFIGURATION (Required if AI_PROVIDER is "openrouter")
+# =============================================================================
+
+# OpenRouter API Key - Get from https://openrouter.ai/
+OPENROUTER_KEY=your_openrouter_api_key_here
+
+# =============================================================================
+# OPENAI CONFIGURATION (Required if AI_PROVIDER is "openai")
+# =============================================================================
+
+# OpenAI API Key - Get from https://platform.openai.com/api-keys
+OPENAI_API_KEY=your_openai_api_key_here
+
+# OpenAI Model to use (e.g., gpt-4, gpt-3.5-turbo)
+OPENAI_MODEL=gpt-4
+
+# =============================================================================
+# ANTHROPIC CONFIGURATION (Required if AI_PROVIDER is "anthropic")
+# =============================================================================
+
+# Anthropic API Key - Get from https://console.anthropic.com/
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Anthropic Model to use (e.g., claude-3-opus-20240229, claude-3-sonnet-20240229)
+ANTHROPIC_MODEL=claude-3-sonnet-20240229
+
+# =============================================================================
+# GOOGLE AI CONFIGURATION (Required if AI_PROVIDER is "google")
+# =============================================================================
+
+# Google AI API Key - Get from https://makersuite.google.com/app/apikey
+GOOGLE_API_KEY=your_google_api_key_here
+
+# Google AI Model to use (e.g., gemini-pro, gemini-pro-vision)
+GOOGLE_MODEL_NAME=gemini-pro
+
+# =============================================================================
+# OPTIONAL CONFIGURATION
+# =============================================================================
+
+# User Information - Optional descriptive information about users
+# This can be displayed in responses or used for personalization
+USERS_INFO=Optional information about bot users
+
+# Trigger Words - Comma-separated list of words that trigger bot responses
+# If empty, bot responds to all messages in allowed chats
+TRIGGER_WORDS=ai,assistant,bot
+
+# =============================================================================
+# NOTES
+# =============================================================================
+#
+# 1. Required credentials must ALL be present if using .env file
+# 2. Only fill in credentials for the AI provider you plan to use
+# 3. For Telegram group IDs, always use negative numbers
+# 4. Keep this file secure and never commit it to version control
+# 5. The bot will use environment variables if available, otherwise falls back to .env
