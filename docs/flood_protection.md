@@ -12,7 +12,7 @@ The bot implements a global rate limiter to prevent LLM cost spikes and API abus
 - **Limit**: Defined by `GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE` in `config.py` (default: 10 requests/minute).
 
 ### Behavior
-1. **Normal Operation**: As long as the global request count is below the limit, requests are processed normally.
+1. **Normal Operation**: As long as the global request count is below the limit, requests are processed normally. Only messages that trigger an AI reply (e.g. private messages, or group messages where the bot is mentioned) consume the rate limit. Passive monitoring of group messages does not count.
 2. **Limit Exceeded**:
    - The bot stops processing the "heavy" logic (LLM generation).
    - **Silent Blocking**: Most requests are dropped silently to avoid spamming the chat.
