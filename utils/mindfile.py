@@ -236,7 +236,7 @@ class Mindfile:
                 )
 
         with open(file_path, "r", encoding="utf-8") as f:
-            print(f"Reading file: {file_path}")
+            # print(f"Reading file: {file_path}")
             return f.read().strip()
 
     def get_file_content(self, filename: str) -> str:
@@ -324,13 +324,13 @@ class Mindfile:
 
         content_parts = []
         for filename, content in sorted_contents:
-            print(f"Building source tags for: {filename}")
+            # print(f"Building source tags for: {filename}")
             open_tag, close_tag = build_source_tags(filename)
             content_parts.append(f"{open_tag}\n\n{content}\n\n{close_tag}")
 
         res = "\n\n\n".join(content_parts)
 
-        print(f"Full mindfile content length: {len(res)}")
+        # print(f"Full mindfile content length: {len(res)}")
         return res
 
     def get_mindfile_split_into_context_window_chunks(self) -> list[str]:

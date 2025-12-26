@@ -300,7 +300,7 @@ def split_string_by_delimiters(
 
     total_length = sum(len(c.text) for c in chunks)
     # Useful debug info, keep it
-    print(f"Total length of text in chunks: {total_length}")
+    # print(f"Total length of text in chunks: {total_length}")
 
     return chunks
 

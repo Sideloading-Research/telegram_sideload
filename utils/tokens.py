@@ -45,8 +45,10 @@ def is_token_limit_of_request_exceeded(messages, safety_margin=None):
                     total_tokens += count_tokens(content_part.get("text", ""))
 
     res = total_tokens * safety_margin > MAX_TOKENS_ALLOWED_IN_REQUEST
-    print(f"Token limit exceeded: {res}")
-    print(f"Total tokens in messages (estimated): {total_tokens}")
+
+    #if res:
+    #    print(f"Token limit exceeded: {res}")
+    #    print(f"Total tokens in messages (estimated): {total_tokens}")
     # print(f"Safety margin: {safety_margin}")
     # print(f"Max tokens allowed in request: {MAX_TOKENS_ALLOWED_IN_REQUEST}")
     return res
@@ -59,7 +61,6 @@ def get_max_chars_allowed(
     absolute_max_chars = MAX_TOKENS_ALLOWED_IN_REQUEST * CHARS_PER_TOKEN
 
     max_chars = int(absolute_max_chars / TOKEN_SAFETY_MARGIN)
-    print(f"initial max_chars: {max_chars}")
 
     if consider_obligatory_worker_parts7:
         obligatory_parts_len = 0
@@ -76,12 +77,8 @@ def get_max_chars_allowed(
             
             obligatory_parts_len += part_len
             part_details.append(f"  - {part}.txt: {part_len} chars")
-            print(f"{part} part_len: {part_len}")
 
-        print(f"obligatory_parts_len: {obligatory_parts_len}")
         max_chars -= obligatory_parts_len
-
-    print(f"max_chars: {max_chars}")
 
     if max_chars < 0:
         initial_max_chars = int(absolute_max_chars / TOKEN_SAFETY_MARGIN)

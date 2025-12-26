@@ -338,11 +338,7 @@ def truncate_text(text: str, max_len: int) -> str:
     else:
         res = truncated_text
 
-    # print the last 5 lines
-    lines = res.split('\n')
-    if len(lines) > 5:
-       for line in lines[-5:]:
-           print(line)
+    pass
 
     return res
 

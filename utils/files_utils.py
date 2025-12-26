@@ -20,5 +20,5 @@ def build_files_dict(directory):
 
 def get_existing_local_files(destination_path):
     files_dict = build_files_dict(destination_path)
-    print_file_dict(files_dict, destination_path)
+    # print_file_dict(files_dict, destination_path)
     return files_dict

@@ -137,7 +137,7 @@ def process_and_generate_leftover(
     )
     
     if not is_truncation_needed(facts_content, token_limit):
-        print("No truncation needed - structured_self_facts fits within limits")
+        # print("No truncation needed - structured_self_facts fits within limits")
         return None
     
     print(f"Truncation detected: {original_tokens} tokens > {token_limit} token limit")

@@ -43,8 +43,6 @@ def reduce_expendable_content(expendable, tokens_to_reduce):
     chars_to_reduce = calculate_chars_to_reduce(expendable, tokens_to_reduce)
     target_expendable_chars = max(0, len(expendable) - chars_to_reduce)
     
-    print(f"Reducing expendable part from {len(expendable)} to {target_expendable_chars} chars")
-
     reduced = shrink_any_text(expendable, target_expendable_chars, source_type="dialogs")
     return reduced, target_expendable_chars
 
@@ -131,7 +129,7 @@ def reduce_context_in_messages(messages):
         - reduced_messages is a new message list with reduced context
         - success is a boolean indicating if reduction was successful
     """
-    print("Reducing context")
+    # print("Reducing context")
 
     # Make a deep copy to avoid modifying the original
     reduced_messages = copy.deepcopy(messages)
@@ -195,7 +193,7 @@ def reduce_context_in_messages(messages):
     iteration = 0
     while is_token_limit_of_request_exceeded(reduced_messages):
         iteration += 1
-        print(f"Reduction iteration {iteration}: applying 10% shrink to each source")
+        # print(f"Reduction iteration {iteration}: applying 10% shrink to each source")
 
         any_shrunk = False
         for seg in shrinkable_segments:
@@ -239,7 +237,8 @@ def reduce_context_in_messages(messages):
     final_context = reduced_messages[context_message_idx]["content"]
     reduction_percentage = 100 - (len(final_context) / len(context) * 100)
     print(f"Context reduction: {reduction_percentage:.2f}% of original size")
-    print(f"Reduction successful: {success}")
+    if not success:
+        print(f"Context reduction failed")
 
     # Per-source length report
     final_lengths = {}
@@ -247,6 +246,7 @@ def reduce_context_in_messages(messages):
         if seg["type"] == "tagged":
             final_lengths[seg["tag"]] = final_lengths.get(seg["tag"], 0) + len(seg["text"])
 
+    """
     print("Per-source length changes:")
     for tag in sorted(original_lengths.keys()):
         orig = original_lengths[tag]
@@ -254,5 +254,6 @@ def reduce_context_in_messages(messages):
         saved = orig - final
         pct = (saved / orig * 100) if orig > 0 else 0
         print(f"  {tag}: {orig} → {final} (−{saved} chars, {pct:.1f}% shrink)")
+    """
 
     return reduced_messages, success 

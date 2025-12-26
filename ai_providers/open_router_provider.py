@@ -56,6 +56,7 @@ def print_openrouter_usage(completion):
     prompt_tokens = _get_from(usage, "prompt_tokens", None)
     completion_tokens = _get_from(usage, "completion_tokens", None)
 
+    """
     print("OpenRouter Usage:")
     if cost is not None:
         print(f"  Cost: {cost} credits")
@@ -65,6 +66,7 @@ def print_openrouter_usage(completion):
         print(f"  Prompt Tokens: {prompt_tokens}")
     if completion_tokens is not None:
         print(f"  Completion Tokens: {completion_tokens}")
+    """
 
     # Add to per-round aggregator
     try:
@@ -102,17 +104,18 @@ def ask_open_router(messages, max_tokens=DEFAULT_MAX_TOKENS):
 
     model_chunks = [effective_models[i:i + 4] for i in range(0, len(effective_models), 4)]
 
-    for chunk in model_chunks:
+    for chunk_index, chunk in enumerate(model_chunks):
         primary_model = chunk[0]
         fallback_models = chunk[1:]
-        
-        print(f"--- Attempting chunk: {primary_model} (primary), {fallback_models} (fallbacks) ---")
+
+        if chunk_index > 0:
+            print(f"--- Attempting fallback chunk: {primary_model} (primary), {fallback_models} (fallbacks) ---")
         
         total_chars = calculate_total_chars_in_messages(messages)
         total_tokens = calculate_total_tokens_in_messages(messages)
-        print(f"Total characters being sent to OpenRouter: {total_chars:,}")
-        print(f"Total tokens being sent to OpenRouter (estimated): {total_tokens:,}")
-        print(f"Number of messages: {len(messages)}")
+        # print(f"Total characters being sent to OpenRouter: {total_chars:,}")
+        # print(f"Total tokens being sent to OpenRouter (estimated): {total_tokens:,}")
+        # print(f"Number of messages: {len(messages)}")
         
         # Breakdown per message role
         char_counts_by_role = {}
@@ -122,9 +125,9 @@ def ask_open_router(messages, max_tokens=DEFAULT_MAX_TOKENS):
             char_count = len(content) if isinstance(content, str) else sum(len(cp.get("text", "")) for cp in content if cp.get("type") == "text")
             char_counts_by_role[role] = char_counts_by_role.get(role, 0) + char_count
         
-        print("Character breakdown by role:")
+        # print("Character breakdown by role:")
         for role, count in char_counts_by_role.items():
-            print(f"  {role}: {count:,} chars")
+            pass # print(f"  {role}: {count:,} chars")
 
         try:
             completion = client.chat.completions.create(

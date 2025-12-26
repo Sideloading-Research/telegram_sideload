@@ -69,7 +69,6 @@ class MindDataManager:
         """Get the current system message and context, refreshing if needed."""
         with self._counter_lock:
             self._request_counter += 1
-            print(f"Request counter for refreshing mind data: {self._request_counter}")
             should_refresh = self._request_counter >= REFRESH_EVERY_N_REQUESTS
 
         if should_refresh:

@@ -12,7 +12,6 @@ def run_sanity_checks():
     Runs all configuration sanity checks.
     Raises ValueError if any check fails.
     """
-    print("Running configuration sanity checks...")
 
     # --- Tag format checks ---
     if not config.SOURCE_TAG_OPEN.startswith("<"):

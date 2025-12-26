@@ -65,7 +65,7 @@ def get_ai_response(messages_history, user_input_for_provider_selection, max_len
     # If stickiness across multiple messages from the same user *without re-indicating* is desired,
     # _selected_provider_for_current_call would need to be managed at a higher scope (e.g., per user session in ConversationManager)
 
-    print(f"Using AI provider: {provider_to_use}")
+    # print(f"Using AI provider: {provider_to_use}")
     
     answer, model_name = ask_gpt_multi_message(
         messages_history,

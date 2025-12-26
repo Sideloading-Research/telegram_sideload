@@ -167,7 +167,6 @@ async def send_typing_periodically(context: ContextTypes.DEFAULT_TYPE, chat_id: 
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print("In the start function...")
     user = update.effective_user
     # The 'if True:' condition seems to be a placeholder for potential future logic.
     # Keeping it as is for now.
@@ -208,8 +207,7 @@ async def restrict(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = f"Keine Berechtigung für user_id {user_id}."
     else: # group/supergroup
         text = f"This group (ID: {chat_id}) is not authorized to use this bot."
-    
-    print(text)
+
     await reply_text_wrapper(update, context, text)
 
 
@@ -306,26 +304,22 @@ def _extract_message_content(update: Update) -> tuple[str, str | None, list | No
         print(f"Chat type: {update.message.chat.type}")
         # Prioritize message.text for user_message_text and mention checks
         if update.message.text:
-            print(f"Message text: {update.message.text}")
             user_message_text = update.message.text
             message_text_content_for_mention_check = update.message.text
             message_entities_for_mention_check = update.message.entities
-            if update.message.entities: print(f"Entities: {update.message.entities}")
         # Fallback to caption if message.text is empty but caption exists
         elif update.message.caption:
-            print(f"Message caption: {update.message.caption}")
             user_message_text = update.message.caption # Use caption as the primary message content
             message_text_content_for_mention_check = update.message.caption
             message_entities_for_mention_check = update.message.caption_entities
-            if update.message.caption_entities: print(f"Caption Entities: {update.message.caption_entities}")
         else:
             # Neither text nor caption (e.g. sticker, voice message without caption)
-            print("Message has no text or caption.")
             # user_message_text remains "<unsupported message type>"
+            pass
     else:
         # This case should ideally not be hit by a MessageHandler unless filters are very broad
-        print("Update does not contain a message.")
         # user_message_text remains "<unsupported message type>"
+        pass
         
     return user_message_text, message_text_content_for_mention_check, message_entities_for_mention_check
 
@@ -351,26 +345,20 @@ def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, messag
                     mention_text = message_text[entity.offset : entity.offset + entity.length]
                     if mention_text == bot_username_at:
                         bot_was_mentioned_or_replied_to = True
-                        print(f"Bot was mentioned by @username: {bot_username_at}")
                         break
-                elif entity.type == MessageEntityType.TEXT_MENTION: 
+                elif entity.type == MessageEntityType.TEXT_MENTION:
                     if entity.user and entity.user.id == context.bot.id:
                         bot_was_mentioned_or_replied_to = True
-                        print(f"Bot was mentioned by text_mention (user ID: {context.bot.id})")
                         break
-    elif not context.bot.username:
-            print("Warning: Bot username not available in context.bot.username. Mention check might be unreliable.")
 
     if not bot_was_mentioned_or_replied_to and update.message.reply_to_message:
         if update.message.reply_to_message.from_user and update.message.reply_to_message.from_user.id == context.bot.id:
             bot_was_mentioned_or_replied_to = True
-            print("Message is a reply to the bot.")
 
     if not bot_was_mentioned_or_replied_to and TRIGGER_WORDS_LIST and message_text:
         for word in TRIGGER_WORDS_LIST:
             if word in message_text.lower():
                 bot_was_mentioned_or_replied_to = True
-                print(f"Bot triggered by word: '{word}'")
                 break 
 
     return bot_was_mentioned_or_replied_to
@@ -436,19 +424,16 @@ async def _process_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
             if provider_report: 
                 await reply_text_wrapper(update, context, provider_report)
             await reply_text_wrapper(update, context, answer)
-            print(f"Replied with generated answer in chat {chat_id}.")
         elif not answer and should_send_reply:
                 print(f"Logic indicated a reply should be sent in chat {chat_id}, but no answer was generated. Expected if not mentioned in restricted mode.")
         else:
-            print(f"Processed message for history in chat {chat_id}. No reply sent.")
+            pass
     finally:
         if typing_task:
             typing_task.cancel()
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print("\nDEBUG MESSAGE INFO:")
-    
     user_message_text, message_text_for_mention, message_entities = _extract_message_content(update)
 
     # Check for admin commands
@@ -471,8 +456,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await reply_text_wrapper(update, context, "normal mode activated")
         return
 
-    print(f"Chat ID: {update.effective_chat.id}")
-    
     if is_allowed(update):
         chat_type = update.effective_chat.type
         is_mentioned = _is_bot_mentioned(update, context, message_text_for_mention, message_entities)
@@ -489,8 +472,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 should_send_reply = True 
             else:
                 should_send_reply = is_mentioned
-
-        print(f"Decision for chat {update.effective_chat.id} (type: {chat_type}): Generate AI reply? {generate_ai_reply}. Send reply? {should_send_reply}")
 
         await _process_and_reply(update, context, command_text, generate_ai_reply, should_send_reply)
 

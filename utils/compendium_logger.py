@@ -8,7 +8,7 @@ from config import STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT
 
 def log_files_being_packed(files_dict: dict[str, str]):
     """Logs which files are being packed into compendiums."""
-    print("\n--- Files being packed into compendiums ---")
+    # print("\n--- Files being packed into compendiums ---")
     
     has_leftover7 = STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT in files_dict
     
@@ -16,14 +16,16 @@ def log_files_being_packed(files_dict: dict[str, str]):
         if filename == STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT:
             print(f"  ✓ {filename} (LEFTOVER)")
         else:
-            print(f"  • {filename}")
+            #print(f"  • {filename}")
+            pass
     
     if has_leftover7:
         print("→ Leftover will be distributed among compendiums")
     else:
-        print("→ No leftover (no truncation occurred)")
+        # print("→ No leftover (no truncation occurred)")
+        pass
     
-    print("-------------------------------------------\n")
+    # print("-------------------------------------------\n")
     
     return has_leftover7
 
@@ -62,15 +64,15 @@ def log_compendium_distribution(compendiums: list[str], files_dict: dict[str, st
     
     has_leftover7 = STRUCTURED_SELF_FACTS_LEFTOVER_FILE_WITHOUT_EXT in files_dict
     
-    print("\n" + "=" * 70)
-    print(f"COMPENDIUM DISTRIBUTION REPORT")
-    print("=" * 70)
+    # print("\n" + "=" * 70)
+    # print(f"COMPENDIUM DISTRIBUTION REPORT")
+    # print("=" * 70)
     
     print(f"\nTotal compendiums created: {total_compendiums}")
     
     if not has_leftover7:
-        print("\nNo leftover content (no truncation occurred)")
-        print("=" * 70 + "\n")
+        # print("\nNo leftover content (no truncation occurred)")
+        # print("=" * 70 + "\n")
         return
     
     # Analyze which compendiums contain leftover

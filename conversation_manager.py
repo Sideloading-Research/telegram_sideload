@@ -3,6 +3,7 @@ from bot_config import (
     get_max_messages_num,
     GLOBAL_PLATFORM_SPECIFIC_PROMPT_ADDITION
 )
+from config import RESPONSE_FORMAT_REMINDER, REMINDER_INTERVAL
 from utils.prompt_utils import format_user_info_prompt, build_initial_conversation_history
 from utils import chat_logger
 
@@ -36,6 +37,7 @@ class Conversation:
         self.conversation_key = conversation_key
         self.max_messages_num = get_max_messages_num()
         self.messages = _build_initial_assistant_messages(self.mind_manager)
+        self.user_message_counter = 0
         self._load_history_from_disk()
 
     def _load_history_from_disk(self):
@@ -49,6 +51,12 @@ class Conversation:
 
     def add_user_message(self, content: str):
         chat_logger.append_message(self.conversation_key, "user", content)
+        
+        self.user_message_counter += 1
+        if REMINDER_INTERVAL > 0 and self.user_message_counter % REMINDER_INTERVAL == 0:
+            content += f"\n\n{RESPONSE_FORMAT_REMINDER}"
+            print(f"---- Added RESPONSE_FORMAT_REMINDER (user message #{self.user_message_counter}) ----")
+
         self.messages.append({"role": "user", "content": content})
         self._trim_history()
 
