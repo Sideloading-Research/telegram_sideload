@@ -3,7 +3,7 @@ from functools import wraps
 from collections import deque
 from utils.creds_handler import CREDS
 from utils.constants import c
-from config import DEFAULT_AI_PROVIDER, RESPONSE_FORMAT_REMINDER, REMINDER_INTERVAL
+from config import DEFAULT_AI_PROVIDER
 
 
 from ai_providers.anthropic_ai_provider import ask_anthropic
@@ -64,7 +64,7 @@ def rate_limit(max_calls, period, stop_on_limit=True):
             
             # Calculate and print the current rate
             current_rate = len(calls) / period * 60  # Convert to calls per min
-            print(f"Current rate: {current_rate:.2f} calls/min")
+            # print(f"Current rate: {current_rate:.2f} calls/min")
             
             return result
         return wrapper
@@ -92,37 +92,27 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
     retry_info = ""
 
     ai_call_counter += 1
-    if REMINDER_INTERVAL > 0 and ai_call_counter % REMINDER_INTERVAL == 0:
-        if messages and messages[-1]["role"] == "user":
-            messages[-1]["content"] += f"\\n\\n{RESPONSE_FORMAT_REMINDER}"
-            print(f"---- Added RESPONSE_FORMAT_REMINDER (call #{ai_call_counter}) ----")
-        elif messages and messages[-1]["role"] == "system" and provider == "google": 
-            # For google provider, the last message might be a system message if no user message exists yet.
-            # Google also takes System: User: prefixes.
-            # This is a fallback, ideally the reminder is part of the user prompt.
-            messages[-1]["content"] += f"\\n\\n{RESPONSE_FORMAT_REMINDER}"
-            print(f"---- Added RESPONSE_FORMAT_REMINDER to system message for Google (call #{ai_call_counter}) ----")
-
+    # Reminder logic removed from here and moved to ConversationManager to track user messages instead of AI calls.
 
     if is_token_limit_of_request_exceeded(messages):
-        print("Token limit exceeded, attempting to reduce context...")
+        # print("Token limit exceeded, attempting to reduce context...")
         reduced_messages, success = reduce_context_in_messages(messages)
         
         if success:
-            print("Successfully reduced context, proceeding with reduced messages")
+            # print("Successfully reduced context, proceeding with reduced messages")
             messages = reduced_messages
         else:
             print("Failed to reduce context sufficiently")
             return "Token limit exceeded - Context could not be reduced sufficiently", "unknown"
     
-    print_messages_for_debugging(messages)
+    # print_messages_for_debugging(messages)
     while retries <= MAX_RETRIES:
         try:
             if user_defined_provider is None:
                 provider = PROVIDER_FROM_ENV
             else:
                 provider = user_defined_provider
-            print(f"Using provider: {provider}")
+            # print(f"Using provider: {provider}")
 
             answer, model_name = None, None
             provider_func = AI_PROVIDERS.get(provider)
@@ -137,7 +127,7 @@ def ask_gpt_multi_message(messages, max_length, user_defined_provider=None):
             is_valid_answer = answer and answer.strip()
 
             if is_valid_answer:
-                print(f"AI response: {answer}")
+                # print(f"AI response: {answer}")
                 return answer, model_name
             else:
                 # This block handles failed calls OR successful calls with empty/error answers

@@ -98,16 +98,17 @@ MODELS_TO_ATTEMPT = [
   "google/gemini-3-flash-preview",
   "google/gemini-2.5-flash",
   "google/gemini-2.5-pro",
-  "x-ai/grok-4.1-fast", # chunk 1 primary model
+  "google/gemini-3-flash-preview", # chunk 1 primary model
   "anthropic/claude-sonnet-4.5",
   "openai/gpt-4.1-mini",
   "meta-llama/llama-4-maverick",
   "qwen/qwen-plus-2025-07-28", # chunk 2 primary model
   "minimax/minimax-m1",
-]
+  "x-ai/grok-4.1-fast"
+  ]
 
 EXPENSIVE_SMART_MODELS = [
-    "google/gemini-3-pro-preview"
+    "google/gemini-3-pro-preview",
     "anthropic/claude-sonnet-4.5",
     "google/gemini-2.5-pro",
 ]

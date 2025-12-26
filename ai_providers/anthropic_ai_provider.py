@@ -18,8 +18,7 @@ def build_client():
 if CREDS.get("AI_PROVIDER") == "anthropic":
     MODEL = build_model_handle()
     CLIENT = build_client()
-    print(f"Loaded Anthropic model: {MODEL}")
-    print(f"Loaded Anthropic client: {CLIENT}")
+    pass
 else:
     MODEL = None
     CLIENT = None

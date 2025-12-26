@@ -26,8 +26,7 @@ def build_model_handle():
 if CREDS.get("AI_PROVIDER") == "openai":
     MODEL = build_model_handle()
     CLIENT = build_client()
-    print(f"Loaded OpenAI model: {MODEL}")
-    print(f"Loaded OpenAI client: {CLIENT}")
+    pass
 else:
     MODEL = None
     CLIENT = None
@@ -52,7 +51,7 @@ def sys_msg_conditional_removal(messages):
             # Otherwise, add the message as-is
             modified_messages.append(message.copy())
     
-    print(f"Messages after conditional removal: {modified_messages}")
+    # print(f"Messages after conditional removal: {modified_messages}")
     return modified_messages
 
 

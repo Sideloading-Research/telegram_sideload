@@ -136,13 +136,16 @@ class AppLogic:
             print(f"Using CHAT_ID ({chat_id}) as conversation key for group chat.")
         else:
             conversation_key = str(user_id)
+
+            """
             if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
                  print(f"Using USER_ID ({user_id}) as conversation key for group chat (BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 is False).")
             elif chat_type == "API":
                  print(f"Using USER_ID ({user_id}) as conversation key for API request.")
             else:
                  print(f"Using USER_ID ({user_id}) as conversation key for private chat.")
-
+            """
+            
         effective_username = _get_effective_username(user_id, username, first_name, last_name)
         print(f"Processing request from user: {effective_username} in context of conversation_key: {conversation_key}. Generate AI reply: {generate_ai_reply}")
 
@@ -158,7 +161,7 @@ class AppLogic:
         
         self.conversation_manager.add_user_message(conversation_key, formatted_user_message)
         
-        print(f"Added user message from {effective_username} to history for key {conversation_key}.")
+        # print(f"Added user message from {effective_username} to history for key {conversation_key}.")
 
         if not generate_ai_reply:
             print(f"AI reply generation skipped for key {conversation_key} as per request.")

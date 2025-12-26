@@ -15,6 +15,9 @@ class QualityChecksWorker(BaseWorker):
 
 
     def _process(self, conversation_history: list[dict[str, str]], original_answer: str, user_info_prompt: str | None = None) -> tuple[dict[str, int | None], str]:
+        print("QualityChecksWorker: evaluating this answer:")
+        print(original_answer)
+        
         if not original_answer or not original_answer.strip():
             print("QualityChecksWorker: Received empty answer to check. Returning None.")
             return {

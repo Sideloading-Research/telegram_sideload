@@ -63,7 +63,7 @@ class IntegrationWorker(BaseWorker):
 
         compendiums = self.mindfile.get_mindfile_data_packed_into_compendiums()
         for i, compendium in enumerate(compendiums):
-            starting_chars = compendium[:100].replace("#", "")
+            starting_chars = compendium[:50].replace("#", "").replace("\n", " ").replace("=", "")
             num_name = f"{i+1}_of_{len(compendiums)}"
             worker = DataWorker(
                 mindfile=self.mindfile,
@@ -112,7 +112,6 @@ class IntegrationWorker(BaseWorker):
             if not model_name or model_name in ("N/A", "unknown"):
                 self.record_diag_event("data_worker_model_invalid", f"{worker.display_name}:{model_name}")
             models_used.add(model_name)
-            print(f"--- Answer from {worker.display_name} ---\n{answer}\n---")
             cleaned_answer = optionally_remove_answer_sections(
                 answer, remove_cot7=True, remove_internal_dialog7=True
             )
@@ -134,7 +133,7 @@ class IntegrationWorker(BaseWorker):
             print(f"# Merged answers are too long ({original_len} chars), using fallback mode.")
             
             sorted_answers = sorted(answers, key=len)
-            
+
             included_answers = []
             for answer in sorted_answers:
                 # Tentatively add the next answer and check the length
@@ -151,9 +150,10 @@ class IntegrationWorker(BaseWorker):
             print(f"# Fallback mode reduced length by {len_diff} chars and removed {answers_diff} answers.")
 
         else:
-            print(f"# Merged answers are of a good length, using standard mode.")
+            # print(f"# Merged answers are of a good length, using standard mode.")
+            pass
 
-        print(f"Merged answers:\n##\n{result}\n##")
+        # print(f"Merged answers:\n##\n{result}\n##")
         return result
 
     def synthesize_answers(
@@ -172,13 +172,14 @@ class IntegrationWorker(BaseWorker):
             raw_user_message: The raw user message for provider selection.
         """
 
+        """
         print(f"# Synthesizing answers ---")
-
         print("Answer candidates:")
         for i, answer in enumerate(answers):
             print(f"--- Candidate {i+1} ---")
             print(answer)
             print("--------------------------------")
+        """
 
         # Get system message from mindfile according to worker_config
         system_message = self.get_worker_system_message(additional_prompt=self.user_info_prompt)
@@ -260,10 +261,12 @@ class IntegrationWorker(BaseWorker):
                 if not model_name or model_name in ("N/A", "unknown"):
                     self.record_diag_event("style_model_invalid", f"iteration_{i+1}:{model_name}")
 
+                """
                 print(f"Input for this iteration:\n---\n{user_facing_answer_for_style}\n---")
                 print("########################################################")
                 print(f"Output of this iteration:\n---\n{styled_answer}\n---")
                 print("########################################################")
+                """
 
             return styled_answer, model_name, iterations
         except Exception as e:
@@ -282,7 +285,6 @@ class IntegrationWorker(BaseWorker):
             )
             if not model_name or model_name in ("N/A", "unknown"):
                 self.record_diag_event("quality_model_invalid", str(model_name))
-            print(f"Quality Scores: {quality_scores}")
             return quality_scores, model_name
         except Exception as e:
             print(f"An error occurred during the quality check: {e}")
@@ -309,7 +311,7 @@ class IntegrationWorker(BaseWorker):
             best_answer_data["models_used"].update(models_used)
 
         if all(score >= MIN_ANSWER_QUALITY_SCORE for score in quality_scores.values()):
-            print("Quality standards met. Finalizing answer.")
+            # print("Quality standards met. Finalizing answer.")
             return True
         
         print(f"Quality standards not met (min score: {MIN_ANSWER_QUALITY_SCORE}). Retrying...")
@@ -417,16 +419,7 @@ class IntegrationWorker(BaseWorker):
                 _extend_with(self.style_worker.display_name, self.style_worker.get_diag_events())
             if self.quality_worker:
                 _extend_with(self.quality_worker.display_name, self.quality_worker.get_diag_events())
-            if aggregated_events:
-                print("Self-diagnostics:")
-                for evt in aggregated_events:
-                    prefix = evt.get("worker") or ""
-                    event = evt.get("event")
-                    details = evt.get("details")
-                    if details:
-                        print(f"- {prefix}: {event}: {details}")
-                    else:
-                        print(f"- {prefix}: {event}")
+            pass
         except Exception:
             pass
 
