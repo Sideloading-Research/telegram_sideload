@@ -1,0 +1,11 @@
+# Sample configuration for a telegram group
+
+group_id = -1001517610383
+group_description = "Our main group about sideloading"
+group_rules = "This is an English-speaking group. Always use English, regardless of the language of the users messages."
+
+# Daily Limits
+# 0 = Forbidden (No messages allowed)
+# >0 = Number of allowed messages per day
+max_autotrigger_messages_per_day = 1
+max_requested_messages_per_day = 3

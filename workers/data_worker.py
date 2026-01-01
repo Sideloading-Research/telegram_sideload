@@ -6,15 +6,18 @@ from config import DATA_WORKER_MAX_TOKENS
 from utils.prompt_utils import build_initial_conversation_history
 
 
+from utils.group_settings import GroupSettings
+
 class DataWorker(BaseWorker):
     def __init__(
         self,
         mindfile: Mindfile,
         custom_worker_context: str | None = None,
         custom_display_name: str | None = None,
+        group_settings: GroupSettings | None = None,
     ):
         super().__init__(
-            "data_worker", custom_display_name=custom_display_name
+            "data_worker", custom_display_name=custom_display_name, group_settings=group_settings
         )
         self.mindfile = mindfile
         self.custom_worker_context = custom_worker_context

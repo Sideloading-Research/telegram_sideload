@@ -5,9 +5,11 @@ from prompts.doorman_worker_prompt import construct_prompt
 from utils.mindfile import Mindfile
 from config import DOORMAN_WORKER_MAX_TOKENS
 
+from utils.group_settings import GroupSettings
+
 class DoormanWorker(BaseWorker):
-    def __init__(self, mindfile: Mindfile):
-        super().__init__("doorman_worker")
+    def __init__(self, mindfile: Mindfile, group_settings: GroupSettings | None = None):
+        super().__init__("doorman_worker", group_settings=group_settings)
         self.mindfile = mindfile
 
     def _extract_request_type(self, response_text: str) -> str | None:

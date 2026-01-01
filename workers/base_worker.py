@@ -2,13 +2,16 @@ from abc import ABC, abstractmethod
 from worker_config import WORKERS_CONFIG
 from config import MAX_TELEGRAM_MESSAGE_LEN
 
+from utils.group_settings import GroupSettings
+
 class BaseWorker(ABC):
-    def __init__(self, worker_name: str, custom_display_name: str | None = None):
+    def __init__(self, worker_name: str, custom_display_name: str | None = None, group_settings: GroupSettings | None = None):
         if worker_name not in WORKERS_CONFIG:
             raise ValueError(f"Worker '{worker_name}' not found in WORKERS_CONFIG.")
         
         self.worker_name = worker_name
         self.display_name = custom_display_name if custom_display_name is not None else worker_name
+        self.group_settings = group_settings
         self.config = WORKERS_CONFIG[worker_name]
         self.mindfile_parts = self.config.get("mindfile_parts", []) + self.config.get(
             "mindfile_parts_optional", []
@@ -36,6 +39,15 @@ class BaseWorker(ABC):
             raise RuntimeError(f"Worker {self.worker_name} has no mindfile set")
         
         system_message = self.mindfile.get_system_message()
+        
+        # Append group context if available
+        if self.group_settings and (self.group_settings.group_description or self.group_settings.group_rules):
+            system_message += "\n\n# The message came from a telegram group for which we have preconfigured settings:\n"
+            if self.group_settings.group_description:
+                system_message += f"Group Description: {self.group_settings.group_description}\n"
+            if self.group_settings.group_rules:
+                system_message += f"Group Rules: {self.group_settings.group_rules}\n"
+        
         if additional_prompt:
             system_message += "\n\n" + additional_prompt
         return system_message

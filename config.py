@@ -244,6 +244,14 @@ to avoid large costs in case of abuse.
 GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE = 2
 RATE_LIMIT_EXCEEDED_MESSAGE = "Dude, too many messages per minute... "
 
+# --- Group Daily Limits (Generic Defaults) ---
+"""
+Default daily limits for group chats if not overridden by specific group settings.
+Only applicable when BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 = True.
+"""
+DEFAULT_MAX_AUTOTRIGGER_MESSAGES_PER_DAY = 10
+DEFAULT_MAX_REQUESTED_MESSAGES_PER_DAY = 50
+
 # --- Dev tools ---
 
 QUICK_TEST_SIDELOAD = os.path.join(PROJECT_ROOT, "tests/test_data/smaller_versions_of_dataset/300k")

@@ -7,9 +7,11 @@ from utils.mindfile import Mindfile
 from ai_service import get_ai_response
 from utils.prompt_utils import build_initial_conversation_history
 
+from utils.group_settings import GroupSettings
+
 class QualityChecksWorker(BaseWorker):
-    def __init__(self, mindfile: Mindfile):
-        super().__init__("quality_checks_worker")
+    def __init__(self, mindfile: Mindfile, group_settings: GroupSettings | None = None):
+        super().__init__("quality_checks_worker", group_settings=group_settings)
         self.mindfile = mindfile
 
 
