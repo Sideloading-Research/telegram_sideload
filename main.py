@@ -20,6 +20,8 @@ from config import BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7, RATE_LIMIT_EXCEED
 from config_sanity_checks import run_sanity_checks
 import config
 from utils.rate_limiter import is_global_rate_limited
+from utils.group_settings import get_group_settings
+import utils.group_usage_tracker as group_tracker
 from utils.constants import c
 
 # Initialize managers and services
@@ -343,7 +345,7 @@ def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, messag
             for entity in message_entities:
                 if entity.type == MessageEntityType.MENTION:
                     mention_text = message_text[entity.offset : entity.offset + entity.length]
-                    if mention_text == bot_username_at:
+                    if mention_text.lower() == bot_username_at.lower():
                         bot_was_mentioned_or_replied_to = True
                         break
                 elif entity.type == MessageEntityType.TEXT_MENTION:
@@ -356,8 +358,10 @@ def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, messag
             bot_was_mentioned_or_replied_to = True
 
     if not bot_was_mentioned_or_replied_to and TRIGGER_WORDS_LIST and message_text:
+        # Check against trigger words case-insensitive
+        message_text_lower = message_text.lower()
         for word in TRIGGER_WORDS_LIST:
-            if word in message_text.lower():
+            if word in message_text_lower:
                 bot_was_mentioned_or_replied_to = True
                 break 
 
@@ -423,7 +427,12 @@ async def _process_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if answer and should_send_reply:
             if provider_report: 
                 await reply_text_wrapper(update, context, provider_report)
-            await reply_text_wrapper(update, context, answer)
+            sent = await reply_text_wrapper(update, context, answer)
+            
+            if sent:
+                # Increment group limits only after successful send
+                await asyncio.to_thread(group_tracker.increment_group_usage, update, context)
+
         elif not answer and should_send_reply:
                 print(f"Logic indicated a reply should be sent in chat {chat_id}, but no answer was generated. Expected if not mentioned in restricted mode.")
         else:
@@ -472,6 +481,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 should_send_reply = True 
             else:
                 should_send_reply = is_mentioned
+
+        # Check Group Limits (Before generating AI reply)
+        # This prevents AI costs and spam if the limit is reached.
+        # We only check if we INTEND to generate a reply.
+        if generate_ai_reply:
+             if not group_tracker.check_group_limits(update, context):
+                  # Limit exceeded or forbidden.
+                  # We stop processing silently (as per typical flood protection).
+                  print(f"Group limits reached for chat {update.effective_chat.id}. Dropping request.")
+                  return
 
         await _process_and_reply(update, context, command_text, generate_ai_reply, should_send_reply)
 

@@ -13,3 +13,7 @@ TEMP_DATA/
 apps/automatic_interviewer/RESULT/
 apps/automatic_interviewer/comparison_report.txt
 .env
+# Ignore all files in groups_settings
+groups_settings/*
+# Except for the sample config
+!groups_settings/sideloading.txt

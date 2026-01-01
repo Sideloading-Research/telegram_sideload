@@ -7,9 +7,11 @@ from config import TOKEN_SAFETY_MARGIN, SOURCE_TAG_OPEN, SOURCE_TAG_CLOSE
 from utils.prompt_utils import build_initial_conversation_history, extract_conversational_messages
 from prompts.style_worker_prompt import construct_prompt
 
+from utils.group_settings import GroupSettings
+
 class StyleWorker(BaseWorker):
-    def __init__(self, mindfile: Mindfile):
-        super().__init__("style_worker")
+    def __init__(self, mindfile: Mindfile, group_settings: GroupSettings | None = None):
+        super().__init__("style_worker", group_settings=group_settings)
         self.mindfile = mindfile
 
     def _process(self, original_answer: str, user_info_prompt: str | None = None, chat_history: list[dict] | None = None) -> tuple[str, str]:

@@ -33,9 +33,11 @@ from utils.usage_accounting import (
 )
 
 
+from utils.group_settings import GroupSettings
+
 class IntegrationWorker(BaseWorker):
-    def __init__(self, mindfile: Mindfile):
-        super().__init__("integration_worker")
+    def __init__(self, mindfile: Mindfile, group_settings: GroupSettings | None = None):
+        super().__init__("integration_worker", group_settings=group_settings)
         self.mindfile = mindfile
         self.quality_worker = None
         self.style_worker = None
@@ -55,11 +57,11 @@ class IntegrationWorker(BaseWorker):
 
     def _initialize_workers(self):
         """Initializes all necessary worker instances."""
-        self.quality_worker = QualityChecksWorker(mindfile=self.mindfile)
+        self.quality_worker = QualityChecksWorker(mindfile=self.mindfile, group_settings=self.group_settings)
         self.user_info_prompt = format_user_info_prompt()
-        self.style_worker = StyleWorker(mindfile=self.mindfile)
-        self.generalist_data_worker = DataWorker(mindfile=self.mindfile)
-        self.doorman_worker = DoormanWorker(mindfile=self.mindfile)
+        self.style_worker = StyleWorker(mindfile=self.mindfile, group_settings=self.group_settings)
+        self.generalist_data_worker = DataWorker(mindfile=self.mindfile, group_settings=self.group_settings)
+        self.doorman_worker = DoormanWorker(mindfile=self.mindfile, group_settings=self.group_settings)
 
         compendiums = self.mindfile.get_mindfile_data_packed_into_compendiums()
         for i, compendium in enumerate(compendiums):
@@ -69,6 +71,7 @@ class IntegrationWorker(BaseWorker):
                 mindfile=self.mindfile,
                 custom_worker_context=compendium,
                 custom_display_name=f"Compendium worker {num_name}: {starting_chars}",
+                group_settings=self.group_settings,
             )
             self.compendium_data_workers.append(worker)
 

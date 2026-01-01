@@ -13,6 +13,7 @@ from telegram.constants import ChatType # ADDED - for explicit comparison
 from workers.integration_worker import IntegrationWorker
 from utils.diag_utils import format_diag_info
 from plugins import config_plugins
+from utils.group_settings import get_group_settings, GroupSettings
 
 # Dynamic Plugin Loading
 PLUGINS = []
@@ -76,13 +77,13 @@ class AppLogic:
         # ai_service is not stored as it's stateless for now, get_ai_response is called directly.
         # mind_manager is managed by conversation_manager for initial prompts.
 
-    def _generate_and_verify_answer(self, messages_history: list[dict[str, str]], raw_user_message: str) -> tuple[str, str | None, dict]:
+    def _generate_and_verify_answer(self, messages_history: list[dict[str, str]], raw_user_message: str, group_settings: GroupSettings | None = None) -> tuple[str, str | None, dict]:
         """
         Generates an AI response by invoking the IntegrationWorker.
         Returns the best answer, the provider report, and a dictionary with diagnostic info.
         """
         mindfile_instance = self.conversation_manager.mind_manager.get_mindfile()
-        integration_worker = IntegrationWorker(mindfile=mindfile_instance)
+        integration_worker = IntegrationWorker(mindfile=mindfile_instance, group_settings=group_settings)
         
         final_ai_answer, provider_report, diag_info = integration_worker.process(
             messages_history=messages_history,
@@ -192,7 +193,17 @@ class AppLogic:
             except Exception as e:
                 print(f"Error executing plugin {plugin.__name__}: {e}")
         
-        final_ai_answer, provider_report, diag_info = self._generate_and_verify_answer(messages_history, raw_user_message)
+        group_settings = None
+
+        if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+            group_settings = get_group_settings(chat_id)
+            if group_settings:
+                # Logging to confirm it's working
+                desc_len = len(group_settings.group_description) if group_settings.group_description else 0
+                rules_len = len(group_settings.group_rules) if group_settings.group_rules else 0
+                print(f"Loaded settings for group {chat_id}: description len={desc_len}, rules len={rules_len}")
+
+        final_ai_answer, provider_report, diag_info = self._generate_and_verify_answer(messages_history, raw_user_message, group_settings=group_settings)
 
         final_answer = modify_answer_before_sending_to_telegram(final_ai_answer)
 
