@@ -1,88 +1,63 @@
-# Simple per-round usage accounting aggregator for OpenRouter
-# The IntegrationWorker starts/ends a round, and OpenRouter provider adds cost per call.
+# Per-round cost tracking and historical cost I/O for OpenRouter.
+# The IntegrationWorker starts/ends a round; the OpenRouter provider adds cost per call.
 
 import os
 from datetime import datetime
 from config import PROJECT_ROOT
+from utils.time_utils import get_monday_of_current_week
 
 _total_cost_for_round = 0.0
-is_tracking7 = False  # boolean naming convention per user preference
+is_tracking7 = False
 
-# --- Round-scoped GENIUS mode flag ---
+# --- Round-scoped flags ---
 GENIUS_MODE_ROUND_FLAG7 = False
-# --- Round-scoped Fixed Model Override ---
 FIXED_MODEL_ROUND_OVERRIDE: str | None = None
-# --- Round-scoped Quality Retries Override ---
 QUALITY_RETRIES_ROUND_OVERRIDE: int | None = None
 
 
 def set_genius_mode7(value: bool) -> None:
-    """Enable/disable GENIUS mode for the current round."""
     global GENIUS_MODE_ROUND_FLAG7
     GENIUS_MODE_ROUND_FLAG7 = bool(value)
 
 
 def is_genius_mode7() -> bool:
-    """Return True if GENIUS mode is active for the current round."""
     return bool(GENIUS_MODE_ROUND_FLAG7)
 
 
 def clear_genius_mode7() -> None:
-    """Clear GENIUS mode flag at the end of the round."""
     global GENIUS_MODE_ROUND_FLAG7
     GENIUS_MODE_ROUND_FLAG7 = False
 
 
 def set_fixed_model_for_round(model_name: str) -> None:
-    """Force a specific model to be used for the current round."""
     global FIXED_MODEL_ROUND_OVERRIDE
     FIXED_MODEL_ROUND_OVERRIDE = model_name
 
 
 def get_fixed_model_for_round() -> str | None:
-    """Return the forced model name if set."""
     return FIXED_MODEL_ROUND_OVERRIDE
 
 
 def clear_fixed_model_for_round() -> None:
-    """Clear the fixed model override."""
     global FIXED_MODEL_ROUND_OVERRIDE
     FIXED_MODEL_ROUND_OVERRIDE = None
 
 
 def set_quality_retries_for_round(retries: int) -> None:
-    """Override the number of quality retries for the current round."""
     global QUALITY_RETRIES_ROUND_OVERRIDE
     QUALITY_RETRIES_ROUND_OVERRIDE = int(retries)
 
 
 def get_quality_retries_for_round() -> int | None:
-    """Return the quality retries override if set."""
     return QUALITY_RETRIES_ROUND_OVERRIDE
 
 
 def clear_quality_retries_for_round() -> None:
-    """Clear the quality retries override."""
     global QUALITY_RETRIES_ROUND_OVERRIDE
     QUALITY_RETRIES_ROUND_OVERRIDE = None
 
 
-def set_quality_retries_for_round(retries: int) -> None:
-    """Override the number of quality retries for the current round."""
-    global QUALITY_RETRIES_ROUND_OVERRIDE
-    QUALITY_RETRIES_ROUND_OVERRIDE = int(retries)
-
-
-def get_quality_retries_for_round() -> int | None:
-    """Return the quality retries override if set."""
-    return QUALITY_RETRIES_ROUND_OVERRIDE
-
-
-def clear_quality_retries_for_round() -> None:
-    """Clear the quality retries override."""
-    global QUALITY_RETRIES_ROUND_OVERRIDE
-    QUALITY_RETRIES_ROUND_OVERRIDE = None
-
+# --- Round tracking ---
 
 _COSTS_DIR = os.path.join(PROJECT_ROOT, "TEMP_DATA", "COSTS")
 
@@ -91,7 +66,6 @@ def _ensure_costs_dir():
     try:
         os.makedirs(_COSTS_DIR, exist_ok=True)
     except Exception:
-        # Avoid crashing the app on FS errors
         pass
 
 
@@ -120,7 +94,6 @@ def add_cost(cost):
             return
         _total_cost_for_round += float(cost)
     except Exception:
-        # Be resilient to unexpected types
         pass
 
 
@@ -142,7 +115,6 @@ def record_round_cost_to_disk():
         with open(path, "a", encoding="utf-8") as f:
             f.write(line)
     except Exception:
-        # Avoid crashing on FS errors
         pass
 
 
@@ -151,27 +123,52 @@ def get_round_cost() -> float:
     return float(_total_cost_for_round)
 
 
-def get_current_month_total() -> float:
-    """Sum all costs from the current month's file. Returns 0.0 if not available."""
+# --- Historical cost totals ---
+
+def _read_month_file(year: int, month: int) -> list[tuple[datetime, float]]:
+    """Read a monthly cost file and return parsed (timestamp, cost) pairs."""
+    path = os.path.join(_COSTS_DIR, f"{year}_{month:02d}.txt")
+    entries = []
+    if not os.path.exists(path):
+        return entries
     try:
-        now = datetime.now()
-        path = _month_file_path(now)
-        if not os.path.exists(path):
-            return 0.0
-        total = 0.0
         with open(path, "r", encoding="utf-8") as f:
             for line in f:
-                # Expected format: timestamp - cost
                 parts = line.strip().split(" - ")
                 if len(parts) == 2:
                     try:
-                        total += float(parts[1])
+                        ts = datetime.fromisoformat(parts[0])
+                        cost = float(parts[1])
+                        entries.append((ts, cost))
                     except Exception:
-                        # Skip malformed lines
                         continue
-        return total
     except Exception:
-        return 0.0
+        pass
+    return entries
+
+
+def get_today_total() -> float:
+    """Sum all costs recorded today."""
+    now = datetime.now()
+    entries = _read_month_file(now.year, now.month)
+    return sum(cost for ts, cost in entries if ts.date() == now.date())
+
+
+def get_week_total() -> float:
+    """Sum costs since Monday 00:00:00 of the current calendar week."""
+    monday = get_monday_of_current_week()
+    now = datetime.now()
+    entries = _read_month_file(now.year, now.month)
+    if monday.month != now.month:
+        entries += _read_month_file(monday.year, monday.month)
+    return sum(cost for ts, cost in entries if ts >= monday)
+
+
+def get_current_month_total() -> float:
+    """Sum all costs from the current month's file."""
+    now = datetime.now()
+    entries = _read_month_file(now.year, now.month)
+    return sum(cost for _, cost in entries)
 
 
 def print_current_month_total():

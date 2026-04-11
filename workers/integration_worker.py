@@ -13,6 +13,7 @@ from config import (
     JAILBREAK_ALARM_TEXT,
     JAILBREAK_TRUNCATE_LEN,
     MAX_COMBINED_ANSWERS_FOR_INTEGRATION_WORKER_CHAR_LEN,
+    MAX_COST_PER_ANSWER_USD,
     STYLE_WORKER_ITERATIONS_NUM,
     REWRITE_LONG_ANSWERS7,
     REWRITE_THRESHOLD_CHARS,
@@ -29,7 +30,8 @@ from utils.usage_accounting import (
     clear_genius_mode7,
     clear_fixed_model_for_round,
     get_quality_retries_for_round,
-    clear_quality_retries_for_round
+    clear_quality_retries_for_round,
+    get_round_cost,
 )
 
 
@@ -294,6 +296,10 @@ class IntegrationWorker(BaseWorker):
             self.record_diag_event("quality_exception", str(e))
             return None, "N/A"
 
+    def is_cost_limit_exceeded(self) -> bool:
+        """Returns True if the accumulated round cost has exceeded MAX_COST_PER_ANSWER_USD."""
+        return get_round_cost() >= MAX_COST_PER_ANSWER_USD
+
     def _update_best_answer(self, current_answer: str, quality_scores: dict, best_answer_data: dict, models_used: set[str]) -> bool:
         """
         Updates the best answer based on quality scores.
@@ -379,6 +385,10 @@ class IntegrationWorker(BaseWorker):
         for attempt in range(retries):
             print(f"\n--- Answer Generation Attempt {attempt + 1}/{retries} ---")
             retries_taken = attempt
+
+            if attempt > 0 and self.is_cost_limit_exceeded():
+                print(f"Cost limit of ${MAX_COST_PER_ANSWER_USD} exceeded (${get_round_cost():.2f} so far). Returning best answer.")
+                break
 
             current_answer, current_provider_report, models_used_this_attempt = self._get_initial_answer(
                 sanitized_messages_history, user_message_for_workers, deep_dive7

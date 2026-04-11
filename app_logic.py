@@ -7,8 +7,11 @@ from utils.answer_modifications import modify_answer_before_sending_to_telegram
 from utils.constants import c # For c.reset_dialog_command
 from config import (
     BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7,
-    SHOW_DIAG_INFO7
+    SHOW_DIAG_INFO7,
+    TOO_MUCH_COST_MESSAGE,
 )
+from utils.cost_limiter import get_unblock_date
+from utils.time_utils import format_recovery_date
 from telegram.constants import ChatType # ADDED - for explicit comparison
 from workers.integration_worker import IntegrationWorker
 from utils.diag_utils import format_diag_info
@@ -66,6 +69,14 @@ def _get_effective_username(user_id: int, username: str = None, first_name: str 
     if last_name:
         effective_username += f" {last_name}"
     return effective_username
+
+
+def _get_cost_limit_message() -> str | None:
+    """Returns a user-facing message if any cost period limit is exceeded, else None."""
+    unblock_date = get_unblock_date()
+    if unblock_date is None:
+        return None
+    return TOO_MUCH_COST_MESSAGE + format_recovery_date(unblock_date)
 
 
 class AppLogic:
@@ -193,6 +204,11 @@ class AppLogic:
             except Exception as e:
                 print(f"Error executing plugin {plugin.__name__}: {e}")
         
+        cost_limit_message = _get_cost_limit_message()
+        if cost_limit_message:
+            print(f"Cost period limit exceeded. Skipping AI generation.")
+            return cost_limit_message, None, {}
+
         group_settings = None
 
         if chat_type in [ChatType.GROUP, ChatType.SUPERGROUP]:
