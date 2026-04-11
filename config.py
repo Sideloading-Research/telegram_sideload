@@ -99,18 +99,15 @@ MODELS_TO_ATTEMPT = [
   "google/gemini-2.5-flash",
   "google/gemini-2.5-pro",
   "google/gemini-3-flash-preview", # chunk 1 primary model
-  "anthropic/claude-sonnet-4.5",
+  "x-ai/grok-4.1-fast",
   "openai/gpt-4.1-mini",
   "meta-llama/llama-4-maverick",
   "qwen/qwen-plus-2025-07-28", # chunk 2 primary model
   "minimax/minimax-m1",
-  "x-ai/grok-4.1-fast"
   ]
 
 EXPENSIVE_SMART_MODELS = [
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "google/gemini-2.5-pro",
+    "google/gemini-3.1-pro-preview",
 ]
 
 """
@@ -243,6 +240,14 @@ to avoid large costs in case of abuse.
 """
 GLOBAL_RATE_LIMIT_REQUESTS_PER_MINUTE = 2
 RATE_LIMIT_EXCEEDED_MESSAGE = "Dude, too many messages per minute... "
+
+MAX_COST_PER_ANSWER_USD = 30
+
+MAX_COST_PER_DAY_USD = 50
+MAX_COST_PER_WEEK_USD = 70
+MAX_COST_PER_MONTH_USD = 200
+
+TOO_MUCH_COST_MESSAGE = "Sorry dude, can't answer yet. Spent too many tokens already. Come back on " # dynamically append the recovery date, e.g. "April 12".
 
 # --- Group Daily Limits (Generic Defaults) ---
 """
