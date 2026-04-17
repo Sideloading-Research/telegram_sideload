@@ -23,6 +23,7 @@ from utils.rate_limiter import is_global_rate_limited
 from utils.group_settings import get_group_settings
 import utils.group_usage_tracker as group_tracker
 from utils.constants import c
+import utils.cost_mode_switcher as cost_mode_switcher
 
 # Initialize managers and services
 # These are global instances for the bot's lifecycle.
@@ -326,18 +327,12 @@ def _extract_message_content(update: Update) -> tuple[str, str | None, list | No
     return user_message_text, message_text_content_for_mention_check, message_entities_for_mention_check
 
 
-def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str | None, message_entities: list | None) -> bool:
+def _is_directly_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str | None, message_entities: list | None) -> bool:
     """
-    Checks if the bot is mentioned in a group chat via @mention, reply, or trigger word.
+    Returns True if the bot is @mentioned or the message is a reply to the bot.
     """
     if not update.message or update.message.chat.type not in [ChatType.GROUP, ChatType.SUPERGROUP]:
         return False
-        
-    # If BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7 is False, we don't strictly *need* to check for mentions 
-    # to decide whether to reply (we reply anyway), but this function's purpose is just "is mentioned?".
-    # So we proceed with checking.
-
-    bot_was_mentioned_or_replied_to = False
 
     if message_text and context.bot.username:
         bot_username_at = f"@{context.bot.username}"
@@ -346,26 +341,36 @@ def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, messag
                 if entity.type == MessageEntityType.MENTION:
                     mention_text = message_text[entity.offset : entity.offset + entity.length]
                     if mention_text.lower() == bot_username_at.lower():
-                        bot_was_mentioned_or_replied_to = True
-                        break
+                        return True
                 elif entity.type == MessageEntityType.TEXT_MENTION:
                     if entity.user and entity.user.id == context.bot.id:
-                        bot_was_mentioned_or_replied_to = True
-                        break
+                        return True
 
-    if not bot_was_mentioned_or_replied_to and update.message.reply_to_message:
+    if update.message.reply_to_message:
         if update.message.reply_to_message.from_user and update.message.reply_to_message.from_user.id == context.bot.id:
-            bot_was_mentioned_or_replied_to = True
+            return True
 
-    if not bot_was_mentioned_or_replied_to and TRIGGER_WORDS_LIST and message_text:
-        # Check against trigger words case-insensitive
-        message_text_lower = message_text.lower()
-        for word in TRIGGER_WORDS_LIST:
-            if word in message_text_lower:
-                bot_was_mentioned_or_replied_to = True
-                break 
+    return False
 
-    return bot_was_mentioned_or_replied_to
+
+def _is_triggered_by_keyword(message_text: str | None) -> bool:
+    """
+    Returns True if the message contains one of the configured trigger words.
+    """
+    if not TRIGGER_WORDS_LIST or not message_text:
+        return False
+    message_text_lower = message_text.lower()
+    for word in TRIGGER_WORDS_LIST:
+        if word in message_text_lower:
+            return True
+    return False
+
+
+def _is_bot_mentioned(update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str | None, message_entities: list | None) -> bool:
+    """
+    Checks if the bot is mentioned in a group chat via @mention, reply, or trigger word.
+    """
+    return _is_directly_mentioned(update, context, message_text, message_entities) or _is_triggered_by_keyword(message_text)
 
 
 def _should_generate_ai_reply(chat_type: str, is_mentioned: bool) -> bool:
@@ -382,8 +387,9 @@ def _should_generate_ai_reply(chat_type: str, is_mentioned: bool) -> bool:
     return False
 
 
-async def _process_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, 
-                             user_message_text: str, generate_ai_reply: bool, should_send_reply: bool):
+async def _process_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
+                             user_message_text: str, generate_ai_reply: bool, should_send_reply: bool,
+                             triggered_by_keyword_only7: bool = False):
     """
     Processes the request via AppLogic and sends a reply if needed.
     """
@@ -416,19 +422,20 @@ async def _process_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
             APPLICATION_LOGIC.process_user_request,
             user_id=user_id,
             raw_user_message=user_message_text,
-            chat_id=chat_id,            
-            chat_type=chat_type,  
+            chat_id=chat_id,
+            chat_type=chat_type,
             generate_ai_reply=generate_ai_reply,
             username=username,
             first_name=first_name,
-            last_name=last_name
+            last_name=last_name,
+            triggered_by_keyword_only7=triggered_by_keyword_only7
         )
         
         if answer and should_send_reply:
-            if provider_report: 
+            if provider_report:
                 await reply_text_wrapper(update, context, provider_report)
             sent = await reply_text_wrapper(update, context, answer)
-            
+
             if sent:
                 # Increment group limits only after successful send
                 await asyncio.to_thread(group_tracker.increment_group_usage, update, context)
@@ -437,6 +444,9 @@ async def _process_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 print(f"Logic indicated a reply should be sent in chat {chat_id}, but no answer was generated. Expected if not mentioned in restricted mode.")
         else:
             pass
+
+        if generate_ai_reply:
+            await asyncio.to_thread(cost_mode_switcher.apply_cost_based_mode, MIND_MANAGER)
     finally:
         if typing_task:
             typing_task.cancel()
@@ -455,20 +465,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
              command_text = command_text[len(bot_mention_at):].strip()
 
     if command_text == c.test_mode_command:
+        cost_mode_switcher.set_user_override("QUICK_TEST")
         config.set_data_source_mode("QUICK_TEST")
         MIND_MANAGER.force_refresh()
         await reply_text_wrapper(update, context, "quick test mode activated")
         return
     if command_text == c.normal_mode_command:
+        cost_mode_switcher.set_user_override("NORMAL")
         config.set_data_source_mode("NORMAL")
         MIND_MANAGER.force_refresh()
         await reply_text_wrapper(update, context, "normal mode activated")
         return
+    if command_text == c.nano_mode_command:
+        cost_mode_switcher.set_user_override("NANO")
+        config.set_data_source_mode("NANO")
+        MIND_MANAGER.force_refresh()
+        await reply_text_wrapper(update, context, "nano mode activated")
+        return
+    if command_text == c.micro_mode_command:
+        cost_mode_switcher.set_user_override("MICRO")
+        config.set_data_source_mode("MICRO")
+        MIND_MANAGER.force_refresh()
+        await reply_text_wrapper(update, context, "micro mode activated")
+        return
 
     if is_allowed(update):
         chat_type = update.effective_chat.type
-        is_mentioned = _is_bot_mentioned(update, context, message_text_for_mention, message_entities)
-        
+        directly_mentioned7 = _is_directly_mentioned(update, context, message_text_for_mention, message_entities)
+        keyword_triggered7 = _is_triggered_by_keyword(message_text_for_mention)
+        is_mentioned = directly_mentioned7 or keyword_triggered7
+        # Only suppress cost-limit message when triggered exclusively by keyword (not @mention/reply)
+        triggered_by_keyword_only7 = keyword_triggered7 and not directly_mentioned7
+
         generate_ai_reply = _should_generate_ai_reply(chat_type, is_mentioned)
         
         # Determine if we should send the reply to Telegram
@@ -492,7 +520,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                   print(f"Group limits reached for chat {update.effective_chat.id}. Dropping request.")
                   return
 
-        await _process_and_reply(update, context, command_text, generate_ai_reply, should_send_reply)
+        await _process_and_reply(update, context, command_text, generate_ai_reply, should_send_reply, triggered_by_keyword_only7)
 
     else:
         await restrict(update, context)
@@ -551,7 +579,8 @@ async def handle_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main():
     run_sanity_checks()
-    
+    cost_mode_switcher.apply_cost_based_mode(MIND_MANAGER)
+
     app = Application.builder().token(TOKEN).build()
 
     # Define combined filter for private chats not in ALLOWED_USER_IDS

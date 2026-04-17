@@ -193,6 +193,79 @@ class TestHandleMessage(unittest.IsolatedAsyncioTestCase):
             mock_restrict.assert_called_once()
             self.mock_app_logic.process_user_request.assert_not_called()
 
+    async def test_keyword_only_sets_triggered_by_keyword_only7_true(self):
+        """Keyword-only trigger passes triggered_by_keyword_only7=True to process_user_request."""
+        self.update.effective_chat.type = ChatType.GROUP
+        self.update.message.chat.type = ChatType.GROUP
+        self.update.message.text = "hey computer help me"
+        self.update.message.entities = []
+        self.update.message.reply_to_message = None
+
+        with patch('main.BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7', True), \
+             patch('main.TRIGGER_WORDS_LIST', ['computer']):
+            await handle_message(self.update, self.context)
+
+        kwargs = self.mock_app_logic.process_user_request.call_args[1]
+        self.assertTrue(kwargs['triggered_by_keyword_only7'])
+
+    async def test_mention_sets_triggered_by_keyword_only7_false(self):
+        """@mention trigger passes triggered_by_keyword_only7=False to process_user_request."""
+        self.update.effective_chat.type = ChatType.GROUP
+        self.update.message.chat.type = ChatType.GROUP
+        self.update.message.text = "@mybot hello"
+        entity = MessageEntity(type=MessageEntityType.MENTION, offset=0, length=6)
+        self.update.message.entities = [entity]
+        self.update.message.reply_to_message = None
+
+        with patch('main.BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7', True), \
+             patch('main.TRIGGER_WORDS_LIST', []):
+            await handle_message(self.update, self.context)
+
+        kwargs = self.mock_app_logic.process_user_request.call_args[1]
+        self.assertFalse(kwargs['triggered_by_keyword_only7'])
+
+    async def test_keyword_and_mention_sets_triggered_by_keyword_only7_false(self):
+        """When message has both keyword and @mention, triggered_by_keyword_only7 is False."""
+        self.update.effective_chat.type = ChatType.GROUP
+        self.update.message.chat.type = ChatType.GROUP
+        self.update.message.text = "@mybot computer help"
+        entity = MessageEntity(type=MessageEntityType.MENTION, offset=0, length=6)
+        self.update.message.entities = [entity]
+        self.update.message.reply_to_message = None
+
+        with patch('main.BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7', True), \
+             patch('main.TRIGGER_WORDS_LIST', ['computer']):
+            await handle_message(self.update, self.context)
+
+        kwargs = self.mock_app_logic.process_user_request.call_args[1]
+        self.assertFalse(kwargs['triggered_by_keyword_only7'])
+
+    async def test_reply_to_bot_sets_triggered_by_keyword_only7_false(self):
+        """Reply-to-bot trigger passes triggered_by_keyword_only7=False to process_user_request."""
+        self.update.effective_chat.type = ChatType.GROUP
+        self.update.message.chat.type = ChatType.GROUP
+        self.update.message.text = "thanks"
+        self.update.message.entities = []
+        reply_msg = MagicMock(spec=Message)
+        reply_msg.from_user = MagicMock(spec=User)
+        reply_msg.from_user.id = 999
+        self.update.message.reply_to_message = reply_msg
+
+        with patch('main.BOT_ANSWERS_IN_GROUPS_ONLY_WHEN_MENTIONED7', True), \
+             patch('main.TRIGGER_WORDS_LIST', []):
+            await handle_message(self.update, self.context)
+
+        kwargs = self.mock_app_logic.process_user_request.call_args[1]
+        self.assertFalse(kwargs['triggered_by_keyword_only7'])
+
+    async def test_private_chat_sets_triggered_by_keyword_only7_false(self):
+        """Private chat always passes triggered_by_keyword_only7=False."""
+        await handle_message(self.update, self.context)
+
+        kwargs = self.mock_app_logic.process_user_request.call_args[1]
+        self.assertFalse(kwargs['triggered_by_keyword_only7'])
+
+
 if __name__ == '__main__':
     unittest.main()
 

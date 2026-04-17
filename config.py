@@ -5,7 +5,15 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 REPO_URL = "https://github.com/RomanPlusPlus/open-source-human-mind.git"
 DATASET_LOCAL_REPO_DIR_PATH = os.path.join(PROJECT_ROOT, "MINDFILE_FROM_GITHUB/full_dataset")
-DATASET_DIR_NAME_IN_REPO = "full_dataset"
+DATASET_DIR_NAME_IN_REPO = "full_dataset" # here we mean the corpus repo defined in REPO_URL
+FALLBACKS_DIR_PATH_IN_REPO = "smaller_versions_of_dataset/fallback_versions" # same
+
+# Local path where fallback files land after cloning the corpus repo
+FALLBACKS_LOCAL_DIR_PATH = os.path.join(PROJECT_ROOT, "MINDFILE_FROM_GITHUB", FALLBACKS_DIR_PATH_IN_REPO)
+MICRO_SIDELOAD_FILENAME = "micro_sideload.txt"
+MICRO_MINDFILE_TEMP_DIR = os.path.join(PROJECT_ROOT, "TEMP_DATA", "micro_mindfile")
+NANO_SIDELOAD_FILENAME = "nano_sideload.txt"
+NANO_MINDFILE_TEMP_DIR = os.path.join(PROJECT_ROOT, "TEMP_DATA", "nano_mindfile")
 
 # if specified, this will take precedence over the online repo
 # Note: it doesn't need the dir specified in DATASET_DIR_NAME_IN_REPO. Just point 
@@ -244,8 +252,8 @@ RATE_LIMIT_EXCEEDED_MESSAGE = "Dude, too many messages per minute... "
 MAX_COST_PER_ANSWER_USD = 30
 
 MAX_COST_PER_DAY_USD = 50
-MAX_COST_PER_WEEK_USD = 70
-MAX_COST_PER_MONTH_USD = 200
+MAX_COST_PER_WEEK_USD = 100
+MAX_COST_PER_MONTH_USD = 300
 
 TOO_MUCH_COST_MESSAGE = "Sorry dude, can't answer yet. Spent too many tokens already. Come back on " # dynamically append the recovery date, e.g. "April 12".
 
@@ -266,17 +274,28 @@ ORIGINAL_LOCAL_MINDFILE_DIR_PATH = LOCAL_MINDFILE_DIR_PATH
 
 # --- Data source mode ---
 # NORMAL: use remote repo-sync (or existing local clone)
-# QUICK_TEST: use local test dataset in QUICK_TEST_SIDELOAD
+# MICRO: use micro_sideload.txt located at the repo path defined in FALLBACKS_DIR_PATH_IN_REPO
+# NANO: use nano_sideload.txt located at the aforementioned path
+# QUICK_TEST: use local test dataset, as defined in QUICK_TEST_SIDELOAD
 DATA_SOURCE_MODE = "NORMAL"
 
+# Captured at startup; cost-based auto-switching is only active when this equals "NORMAL".
+# If the admin explicitly set DATA_SOURCE_MODE to anything else, auto-switching is suppressed.
+ORIGINAL_DATA_SOURCE_MODE = DATA_SOURCE_MODE
+
+# Fraction of MAX_COST_PER_MONTH_USD at which auto-switching kicks in.
+COST_MODE_MICRO_THRESHOLD_PCT = 0.50  # >= 50% → switch to MICRO
+COST_MODE_NANO_THRESHOLD_PCT = 0.75   # >= 75% → switch to NANO
+
 def set_data_source_mode(mode: str) -> None:
-    """Switch between NORMAL and QUICK_TEST data sources.
-    This function updates LOCAL_MINDFILE_DIR_PATH accordingly.
-    """
+    """Switch between NORMAL, QUICK_TEST, MICRO, and NANO data sources."""
     global DATA_SOURCE_MODE, LOCAL_MINDFILE_DIR_PATH
     if mode == "QUICK_TEST":
         DATA_SOURCE_MODE = "QUICK_TEST"
         LOCAL_MINDFILE_DIR_PATH = QUICK_TEST_SIDELOAD
+    elif mode in ("MICRO", "NANO"):
+        DATA_SOURCE_MODE = mode
+        LOCAL_MINDFILE_DIR_PATH = ORIGINAL_LOCAL_MINDFILE_DIR_PATH
     else:
         DATA_SOURCE_MODE = "NORMAL"
         LOCAL_MINDFILE_DIR_PATH = ORIGINAL_LOCAL_MINDFILE_DIR_PATH

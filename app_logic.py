@@ -125,15 +125,16 @@ class AppLogic:
             return chat_id in self.allowed_group_ids
         return False
 
-    def process_user_request(self, 
-                             user_id: int, 
-                             raw_user_message: str, 
-                             chat_id: int,             # ADDED
-                             chat_type: str,           # ADDED
-                             generate_ai_reply: bool,   # ADDED
-                             username: str = None, 
-                             first_name: str = None, 
-                             last_name: str = None) -> tuple[str | None, str | None, dict]: # Modified return type
+    def process_user_request(self,
+                             user_id: int,
+                             raw_user_message: str,
+                             chat_id: int,
+                             chat_type: str,
+                             generate_ai_reply: bool,
+                             username: str = None,
+                             first_name: str = None,
+                             last_name: str = None,
+                             triggered_by_keyword_only7: bool = False) -> tuple[str | None, str | None, dict]:
         """
         Processes the user's request. Adds user message to history.
         If generate_ai_reply is True, calls AI, adds AI response to history, and returns answer.
@@ -207,6 +208,9 @@ class AppLogic:
         cost_limit_message = _get_cost_limit_message()
         if cost_limit_message:
             print(f"Cost period limit exceeded. Skipping AI generation.")
+            if triggered_by_keyword_only7:
+                # Keyword-triggered messages stay silent when over budget; user didn't address bot directly
+                return None, None, {}
             return cost_limit_message, None, {}
 
         group_settings = None
