@@ -1,6 +1,7 @@
 import threading
 from typing import Tuple, Optional
-from utils.dataset_files import refresh_local_mindfile_data
+import config
+from utils.dataset_files import refresh_local_mindfile_data, refresh_micro_mindfile_data, refresh_nano_mindfile_data
 from utils.mindfile import get_system_message_and_context, Mindfile
 from utils.startup_checks import check_worker_mindfile_parts
 from config import REPO_URL, DATASET_LOCAL_REPO_DIR_PATH, REFRESH_EVERY_N_REQUESTS
@@ -36,9 +37,18 @@ class MindDataManager:
         cleanup_leftover_files()
         
         try:
-            refreshed_files_dict = refresh_local_mindfile_data(
-                REPO_URL, DATASET_LOCAL_REPO_DIR_PATH
-            )
+            if config.DATA_SOURCE_MODE == "MICRO":
+                refreshed_files_dict = refresh_micro_mindfile_data(
+                    REPO_URL, DATASET_LOCAL_REPO_DIR_PATH
+                )
+            elif config.DATA_SOURCE_MODE == "NANO":
+                refreshed_files_dict = refresh_nano_mindfile_data(
+                    REPO_URL, DATASET_LOCAL_REPO_DIR_PATH
+                )
+            else:
+                refreshed_files_dict = refresh_local_mindfile_data(
+                    REPO_URL, DATASET_LOCAL_REPO_DIR_PATH
+                )
 
             if not refreshed_files_dict:
                 # If refresh returns nothing, and we have no old data, it's a critical failure.

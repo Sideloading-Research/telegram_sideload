@@ -11,7 +11,80 @@ from utils.github_tools import (
     load_repo_hash,
     save_repo_hash,
 )
+from utils.micro_mindfile_builder import build_sideload_files_dict
 from utils.startup_checks import check_worker_mindfile_parts
+
+
+def _copy_fallback_dir(temp_path: str) -> None:
+    """Copies the fallback dir from a temp repo clone to the local MINDFILE_FROM_GITHUB tree."""
+    src = os.path.join(temp_path, config.FALLBACKS_DIR_PATH_IN_REPO)
+    dst = config.FALLBACKS_LOCAL_DIR_PATH
+    if not os.path.exists(src):
+        print(f"Warning: fallback dir not found in cloned repo at {src}")
+        return
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copytree(src, dst)
+    print(f"Fallback files saved to: {dst}")
+
+
+def _get_sideload_path(filename: str) -> str:
+    return os.path.join(config.FALLBACKS_LOCAL_DIR_PATH, filename)
+
+
+def _validate_sideload_files(files_dict: dict[str, str], label: str) -> None:
+    valid7, error_report, warning_report = check_worker_mindfile_parts(files_dict)
+    if warning_report:
+        print(f"Warning from {label} mindfile:\n{warning_report}")
+    if not valid7:
+        raise ValueError(f"{label} mindfile validation failed:\n{error_report}")
+
+
+def _clone_repo_and_copy_fallbacks(repo_url: str, destination_path: str) -> None:
+    """Clones the corpus repo just to extract the fallback files."""
+    temp_path = destination_path + "_temp"
+    print("Cloning repo to retrieve fallback files...")
+    try:
+        successfully_cloned7 = clone_repo_to_temp(repo_url, temp_path)
+        if successfully_cloned7:
+            _copy_fallback_dir(temp_path)
+    finally:
+        cleanup_temp_directory(temp_path)
+
+
+def _ensure_sideload_exists(filename: str, repo_url: str, destination_path: str) -> None:
+    """Clones the repo if the sideload file is not yet available locally."""
+    if not os.path.exists(_get_sideload_path(filename)):
+        _clone_repo_and_copy_fallbacks(repo_url, destination_path)
+
+
+def _refresh_sideload_mindfile_data(
+    filename: str, temp_dir: str, label: str, repo_url: str, destination_path: str
+) -> dict[str, str]:
+    """Shared entry point for sideload-based modes (MICRO, NANO)."""
+    _ensure_sideload_exists(filename, repo_url, destination_path)
+    sideload_path = _get_sideload_path(filename)
+    if not os.path.exists(sideload_path):
+        raise FileNotFoundError(f"{filename} not available at {sideload_path}")
+    print(f"Building mindfile from {sideload_path}")
+    files_dict = build_sideload_files_dict(sideload_path, temp_dir)
+    _validate_sideload_files(files_dict, label)
+    return files_dict
+
+
+def refresh_micro_mindfile_data(repo_url: str, destination_path: str) -> dict[str, str]:
+    """Entry point for MICRO mode: builds files_dict from micro_sideload.txt."""
+    return _refresh_sideload_mindfile_data(
+        config.MICRO_SIDELOAD_FILENAME, config.MICRO_MINDFILE_TEMP_DIR, "MICRO", repo_url, destination_path
+    )
+
+
+def refresh_nano_mindfile_data(repo_url: str, destination_path: str) -> dict[str, str]:
+    """Entry point for NANO mode: builds files_dict from nano_sideload.txt."""
+    return _refresh_sideload_mindfile_data(
+        config.NANO_SIDELOAD_FILENAME, config.NANO_MINDFILE_TEMP_DIR, "NANO", repo_url, destination_path
+    )
 
 
 def verify_dataset_path(dataset_path):
@@ -53,6 +126,7 @@ def update_files_and_hashes(temp_path, destination_path, current_hash, repo_url)
     try:
         backup_repo(repo_url, destination_path)
         move_dataset(dataset_path, destination_path)
+        _copy_fallback_dir(temp_path)
         print(
             f"\nCleaned up repository. Only {config.DATASET_DIR_NAME_IN_REPO} directory remains at {destination_path}"
         )

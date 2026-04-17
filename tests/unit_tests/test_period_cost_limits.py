@@ -13,7 +13,7 @@ import os
 import unittest
 import tempfile
 from datetime import datetime, timedelta, date
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import utils.usage_accounting as ua
 import utils.cost_limiter as cl
@@ -416,6 +416,54 @@ class TestGetCostLimitMessage(unittest.TestCase):
             msg = fn()
         self.assertIn("May 1", msg)
         self.assertNotIn("month", msg)
+
+
+# ---------------------------------------------------------------------------
+# Tests for process_user_request: keyword-only cost limit suppression
+# ---------------------------------------------------------------------------
+
+def _make_app_logic():
+    from app_logic import AppLogic
+    from conversation_manager import ConversationManager
+    conv_manager = MagicMock(spec=ConversationManager)
+    conv_manager.reset_conversation = MagicMock(return_value=False)
+    conv_manager.add_user_message = MagicMock()
+    conv_manager.get_conversation_messages = MagicMock(return_value=[])
+    return AppLogic(
+        conversation_manager=conv_manager,
+        allowed_user_ids=[1],
+        allowed_group_ids=[100],
+    )
+
+
+class TestProcessUserRequestCostLimitKeyword(unittest.TestCase):
+    """Verifies that cost limit message is suppressed for keyword-only triggers."""
+
+    def _call(self, triggered_by_keyword_only7: bool):
+        logic = _make_app_logic()
+        with patch("app_logic.get_unblock_date", return_value=date(2026, 5, 1)), \
+             patch("app_logic.format_recovery_date", return_value="May 1"), \
+             patch("app_logic.PLUGINS", []):
+            answer, report, _ = logic.process_user_request(
+                user_id=1,
+                raw_user_message="hello",
+                chat_id=1,
+                chat_type="private",
+                generate_ai_reply=True,
+                triggered_by_keyword_only7=triggered_by_keyword_only7,
+            )
+        return answer, report
+
+    def test_cost_limit_message_sent_when_directly_mentioned(self):
+        """Direct mention + cost exceeded → user gets the "come back on" message."""
+        answer, _ = self._call(triggered_by_keyword_only7=False)
+        self.assertIsNotNone(answer)
+        self.assertIn("May 1", answer)
+
+    def test_cost_limit_suppressed_when_triggered_by_keyword_only(self):
+        """Keyword-only trigger + cost exceeded → bot returns None (stays silent)."""
+        answer, _ = self._call(triggered_by_keyword_only7=True)
+        self.assertIsNone(answer)
 
 
 if __name__ == "__main__":

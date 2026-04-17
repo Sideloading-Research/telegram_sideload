@@ -16,6 +16,22 @@ admin:test
 
 The bot will activate the test mode and start using the data from the `tests/test_data/smaller_versions_of_dataset/300k` directory. It will confirm the switch with the message: "quick test mode activated".
 
+### Switch to MICRO mode
+
+A lightweight fallback that loads only `micro_sideload.txt` (includes dialogs and memories):
+
+```
+admin:micro
+```
+
+### Switch to NANO mode
+
+The most minimal footprint — loads only the system message and structured self-facts:
+
+```
+admin:nano
+```
+
 ### Switch Back to Normal Mode
 
 To switch back to the default data source, send the following message:
@@ -25,3 +41,5 @@ admin:norm
 ```
 
 The bot will revert to the original data source configuration (either the remote repository or the `LOCAL_MINDFILE_DIR_PATH` you specified in `config.py`). It will confirm the switch with the message: "normal mode activated".
+
+For a full explanation of all modes and the cost-based auto-switching feature, see the [Data Source Modes guide](data_source_modes.md).

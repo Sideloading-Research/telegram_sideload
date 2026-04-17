@@ -207,7 +207,6 @@ class Mindfile:
         required_files = [
             SYSTEM_MESSAGE_FILE_WITHOUT_EXT,
             STRUCTURED_SELF_FACTS_FILE_WITHOUT_EXT,
-            STRUCTURED_MEMORIES_FILE_WITHOUT_EXT,
         ]
         for req_file in required_files:
             if req_file not in self.files_dict:

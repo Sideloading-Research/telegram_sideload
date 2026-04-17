@@ -14,6 +14,22 @@ class StyleWorker(BaseWorker):
         super().__init__("style_worker", group_settings=group_settings)
         self.mindfile = mindfile
 
+    def _get_style_context_parts(self) -> list[str]:
+        """Returns context parts with style_samples substituting dialogs when available."""
+        style_samples_available7 = "style_samples" in self.mindfile.files_dict
+        dialogs_available7 = "dialogs" in self.mindfile.files_dict
+        if style_samples_available7:
+            return [p for p in self.mindfile_parts if p != "dialogs"]
+        if dialogs_available7:
+            print("No style_samples.txt provided, using dialogs.txt for style.")
+            return [p for p in self.mindfile_parts if p != "style_samples"]
+        return [p for p in self.mindfile_parts if p not in ("style_samples", "dialogs")]
+
+    def get_worker_context(self) -> str:
+        if not self.mindfile:
+            raise RuntimeError("Worker style_worker has no mindfile set")
+        return self.mindfile.get_context(self._get_style_context_parts())
+
     def _process(self, original_answer: str, user_info_prompt: str | None = None, chat_history: list[dict] | None = None) -> tuple[str, str]:
         if not original_answer or not original_answer.strip():
             print("StyleWorker: Received empty answer to style. Returning it as is.")

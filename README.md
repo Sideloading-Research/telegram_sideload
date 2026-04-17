@@ -154,6 +154,8 @@ For instructions on advanced local setups, such as using a local mindfile or a l
 
 For details on available admin commands for development and testing, see the [admin commands guide](docs/admin_commands.md).
 
+For a full explanation of data source modes (NORMAL / MICRO / NANO / QUICK_TEST) and the automatic cost-based mode switching, see the [Data Source Modes guide](docs/data_source_modes.md).
+
 ### Security
 
 For information about flood protection, rate limiting, and jailbreak detection, see the [Security & Flood Protection](docs/flood_protection.md) guide.

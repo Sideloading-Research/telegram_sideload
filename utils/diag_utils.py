@@ -1,4 +1,5 @@
 from utils.usage_accounting import get_round_cost, get_current_month_total
+import config
 
 # Helper to remove vowels for compact output
 
@@ -33,7 +34,14 @@ def format_diag_info(diag_info: dict) -> str:
     if models_used:
         # Ditch the provider part for brevity, e.g., "google/gemini-2.5-flash" -> "gemini-2.5-flash"
         short_model_names = [name.split('/')[-1] for name in models_used]
-        models_str = ", ".join(sorted(short_model_names))
+        
+        # Shorten each model name: remove vowels, dashes, and truncate to 6 chars
+        compact_names = []
+        for name in sorted(short_model_names):
+            compact_name = remove_vowels(name).replace("-", "")
+            compact_names.append(compact_name[:6])
+            
+        models_str = ",".join(compact_names)
     else:
         models_str = "N/A"
             
@@ -53,6 +61,13 @@ def format_diag_info(diag_info: dict) -> str:
     diag_parts.append(f"rc:{round(rc_val, 1)}")
     diag_parts.append(f"mc:{int(round(mc_val, 0))}")
     
+    # Mode indication (only if not NORMAL)
+    if config.DATA_SOURCE_MODE != "NORMAL":
+        mode_str = config.DATA_SOURCE_MODE.lower()
+        if config.DATA_SOURCE_MODE == "QUICK_TEST":
+            mode_str = "qt"
+        diag_parts.append(f"md:{mode_str}")
+
     # Remove spaces between entries by joining with ';' and then remove vowels for compactness
     compact = f"[{';'.join(diag_parts)}]"
     compact = remove_vowels(compact)

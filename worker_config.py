@@ -14,8 +14,8 @@ WORKER_SPECIFIC_PARTS = {
         "type": "meta",
     },
     "style_worker": {
-        "mindfile_parts": ["dialogs"],
-        "mindfile_parts_optional": ["interviews_etc"],
+        "mindfile_parts": [],
+        "mindfile_parts_optional": ["dialogs", "interviews_etc", "style_samples"],
         "type": "meta",
     },
     "doorman_worker": {
@@ -23,11 +23,10 @@ WORKER_SPECIFIC_PARTS = {
         "type": "meta",
     },
     "data_worker": {
-        "mindfile_parts": [
+        "mindfile_parts": [],
+        "mindfile_parts_optional": [
             "structured_memories",
             "dialogs",
-        ],
-        "mindfile_parts_optional": [
             "consumed_media_list",
             "interviews_etc",
             "writings_non_fiction",
